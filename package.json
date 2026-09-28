@@ -1,0 +1,16 @@
+{
+  "name": "kandypack-group23",
+  "private": true,
+  "workspaces": ["backend", "frontend"],
+  "scripts": {
+    "api": "npm run dev -w backend",
+    "web": "npm run dev -w frontend",
+    "build": "npm run build -w frontend",
+    "check": "npm run check -w backend && npm run build",
+    "migrate": "npm run migrate -w backend",
+    "provision": "npm run provision -w backend",
+    "seed": "npm run seed -w backend",
+    "test": "npm test -w backend"
+  },
+  "engines": {"node": ">=24 <25"}
+}

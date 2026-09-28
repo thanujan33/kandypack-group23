@@ -1,0 +1,21 @@
+{
+  "name": "backend",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "node --watch src/server.js",
+    "start": "node src/server.js",
+    "check": "node scripts/check.js",
+    "migrate": "node scripts/migrate.js",
+    "provision": "node scripts/provision.js",
+    "seed": "node scripts/seed.js",
+    "test": "node scripts/test.js"
+  },
+  "dependencies": {
+    "bcryptjs": "^3.0.2",
+    "dotenv": "^17.2.0",
+    "express": "^5.1.0",
+    "jsonwebtoken": "^9.0.2",
+    "mysql2": "^3.14.0"
+  }
+}
