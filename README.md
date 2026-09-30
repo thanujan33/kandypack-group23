@@ -176,3 +176,42 @@ Existing database data is retained in the Docker volume.
 
 Do not use docker compose down -v unless you deliberately intend
 to delete this project's local database data.
+
+### Create a local administrator account
+
+After completing database migration and provisioning:
+
+1. Set DEMO_PASSWORD in backend/.env to a private test password.
+   Use 12–72 characters and no surrounding spaces. For ASCII passwords,
+   this also satisfies the script's 72-byte limit.
+2. Keep SEED_DEMO=NO.
+3. From the project root, run:
+
+   ```powershell
+   cd backend
+   node scripts/create-dev-admin.js
+   cd ..
+   ```
+
+4. Start the backend and frontend in separate terminals:
+
+   ```powershell
+   npm run api
+   ```
+
+   ```powershell
+   npm run web
+   ```
+
+5. Open http://localhost:5173 and sign in with:
+   - Email: dev1-admin@kandypack.test
+   - Password: the DEMO_PASSWORD used when creating the account.
+
+Run the account-creation script once per local database.
+If the account already exists, the script stops without changing it.
+Changing DEMO_PASSWORD afterward does not reset its password.
+
+Each teammate uses their own local database and credentials.
+Never commit .env files or database backups.
+
+Manual verification results are recorded in backend/test/README.md.
