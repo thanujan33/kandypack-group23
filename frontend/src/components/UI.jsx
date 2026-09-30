@@ -1,4 +1,4 @@
-import {useState} from 'react';
+import React, {useState} from 'react';
 export function Table({rows}) {
   if(!rows?.length) return <p className="p-4 text-stone-500">No records yet.</p>;
   const keys=Object.keys(rows[0]);

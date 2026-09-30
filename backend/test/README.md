@@ -57,3 +57,12 @@ Both restricted endpoints returned:
 - Retried /api/me with the same token.
 - Received "Session expired; sign in again".
 - This checks database expiry enforcement, not JWT expiry.
+
+## Admin management UI checks — 2026-09-30
+
+- Signed in as ADMIN through the browser.
+- Created a STORE staff account.
+- Assigned that account to DEV1_TEST_STORE.
+- Created Dev1 Test Route and confirmed it appeared in Delivery coverage.
+- Retired the route.
+- Verified the route remained in the database with active = 0.
