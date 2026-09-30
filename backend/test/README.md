@@ -13,3 +13,13 @@ and builds the frontend. The full npm test suite is not available yet.
 - Import completed without errors; three warnings were reported
   but their details were not captured.
 - Removed the temporary database after verification.
+
+## Customer permission checks — 2026-09-30
+
+Using a signed-in CUSTOMER account:
+- GET /api/me returned the CUSTOMER role.
+- GET /api/users rejected access.
+- POST /api/staff-users rejected access.
+
+Both restricted endpoints returned:
+"This action is not allowed for your role"
