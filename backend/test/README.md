@@ -66,3 +66,12 @@ Both restricted endpoints returned:
 - Created Dev1 Test Route and confirmed it appeared in Delivery coverage.
 - Retired the route.
 - Verified the route remained in the database with active = 0.
+
+## Store-manager authentication — 2026-09-30
+
+- Signed in as Dev1 Test Store Manager.
+- Confirmed /api/me returned role STORE and store_id 1,
+  matching the assigned test store.
+- Confirmed the STORE account could not create routes:
+  POST /api/routes returned "This action is not allowed for your role".
+- Removed the temporary test route and store after verification.
