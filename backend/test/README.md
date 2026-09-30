@@ -23,3 +23,12 @@ Using a signed-in CUSTOMER account:
 
 Both restricted endpoints returned:
 "This action is not allowed for your role"
+
+## Admin and staff verification — 2026-09-30
+
+- Created a separate local ADMIN account using create-dev-admin.js.
+- Confirmed administrator login and access to GET /api/users.
+- Created a FACTORY account through POST /api/staff-users.
+- Signed in using the new FACTORY account.
+- Confirmed that GET /api/users rejected the FACTORY account
+  with "This action is not allowed for your role".
