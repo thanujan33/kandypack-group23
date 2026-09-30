@@ -41,3 +41,19 @@ Both restricted endpoints returned:
 - Confirmed its existing session could not access GET /api/me.
 - Re-enabled the test account after the check.
 - Disabling blocks access but does not permanently revoke sessions.
+
+## Inactivity timeout verification — 2026-09-30
+
+- Confirmed the enabled FACTORY account's session could access /api/me.
+- Simulated inactivity by setting last_seen to 31 minutes earlier.
+- Retried /api/me using the same token.
+- Received "Session expired; sign in again".
+
+
+## Database session expiry verification — 2026-09-30
+
+- Started with a working FACTORY session.
+- Set expires_at to one minute in the past and last_seen to now.
+- Retried /api/me with the same token.
+- Received "Session expired; sign in again".
+- This checks database expiry enforcement, not JWT expiry.
