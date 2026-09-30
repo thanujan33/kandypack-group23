@@ -6,3 +6,5 @@ dist/
 backups/
 *.log
 .DS_Store
+.vite/
+backups/
