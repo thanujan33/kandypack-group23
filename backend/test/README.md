@@ -32,3 +32,12 @@ Both restricted endpoints returned:
 - Signed in using the new FACTORY account.
 - Confirmed that GET /api/users rejected the FACTORY account
   with "This action is not allowed for your role".
+
+
+  ## Disabled-account verification — 2026-09-30
+
+- Disabled the FACTORY test account through the ADMIN API.
+- Confirmed active = 0.
+- Confirmed its existing session could not access GET /api/me.
+- Re-enabled the test account after the check.
+- Disabling blocks access but does not permanently revoke sessions.
