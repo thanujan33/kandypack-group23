@@ -36,3 +36,6 @@ CREATE TABLE order_items (
   CHECK(quantity BETWEEN 1 AND 100000),
   CHECK(unit_price>0), CHECK(space_rate>0)
 ) ENGINE=InnoDB;
+CREATE VIEW v_order_totals AS
+SELECT order_id,SUM(line_total) total_value,SUM(quantity) total_quantity,
+  SUM(quantity*space_rate) total_space FROM order_items GROUP BY order_id;
