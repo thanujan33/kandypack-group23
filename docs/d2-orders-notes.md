@@ -127,8 +127,25 @@ Extra checks on the finished file:
   exist yet (Phase 2).
 - Scratch database dropped. `kandypack` still contains only `001_core.sql`.
 
+### Phase 2 — Triggers and procedure — 2026-10-04
+
+| Commit | Piece | What was tested on the scratch DB |
+|---|---|---|
+| `e3d64c6` | `orders_lead_insert` | t1 accepted; t2 rejected (Orders require at least 7 days notice); t3 historical ok; t4 historical too soon rejected. |
+| `ef46342` | `orders_lead_update` | status update ok; early delivery date update rejected; +10 days update ok. |
+| `cffa20f` | `sp_place_order` | P1: id=1, Order placed, 1500.00 / 9 / 6.000. P2-P7: rejected with exact contract messages. P8: orders=1, headers without lines=0, lines=2. P9: old order totals unchanged. |
+| `f188294` | NULL-item-list | Reproduced bug (headers without lines=1), fixed, retested (0). |
+
+- The final file was compared with the handbook and differs only by the NULL guard on one line.
+- `010_orders.sql` was applied to the real `kandypack` database at the end of Phase 2, followed by `npm run provision`.
+- Grants verified: `kp_app` has `EXECUTE ON PROCEDURE kandypack.sp_place_order`, but NO `INSERT`/`UPDATE` on `orders` or `order_items`. 
+- Direct `INSERT`/`UPDATE` as `kp_app` on `orders` were denied (ERROR 1142). `CALL` executed but was rejected with 45000 as expected. Zero orders created in real DB.
+- The scratch database was dropped.
+
 ## Bugs & trade-offs
 
+- **Defect fixed:** `sp_place_order` had a bug where `p_items IS NULL` bypassed JSON length checks, leaving a header without lines. Reproduced and fixed with `p_items IS NULL OR...` in one line.
+- **Trade-off/lesson:** The Docker server defaults to UTC, but the app uses `+05:30` (Sri Lanka time). The 7-day rule depends on the session time zone, so every manual test required `SET time_zone='+05:30'`.
 - **Trade-off:** testing on a scratch database instead of the real one, to keep
   the migration checksum valid while `010_orders.sql` is still being extended.
   Mistake while doing this: the first scratch run used the wrong script path and
