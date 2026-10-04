@@ -53,4 +53,49 @@ BEGIN
     SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT='Orders require at least 7 days notice';
   END IF;
 END$$
+CREATE PROCEDURE sp_place_order(
+  IN p_customer INT, IN p_route INT, IN p_address VARCHAR(255),
+  IN p_instructions VARCHAR(500), IN p_date DATE, IN p_items JSON
+)
+SQL SECURITY DEFINER
+BEGIN
+  DECLARE v_order INT;
+  DECLARE v_lock INT;
+  DECLARE EXIT HANDLER FOR SQLEXCEPTION BEGIN ROLLBACK; RESIGNAL; END;
+  START TRANSACTION;
+  SELECT id INTO v_lock FROM app_lock WHERE id=1 FOR UPDATE;
+  IF NOT EXISTS(SELECT 1 FROM users WHERE id=p_customer AND role='CUSTOMER' AND active=1)
+     OR NOT EXISTS(SELECT 1 FROM routes WHERE id=p_route AND active=1) THEN
+    SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT='Invalid customer or delivery route';
+  END IF;
+  IF p_date IS NULL OR p_date<CURRENT_DATE+INTERVAL 7 DAY OR
+     p_address IS NULL OR CHAR_LENGTH(TRIM(p_address))=0 THEN
+    SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT='Address and delivery date at least 7 days away are required';
+  END IF;
+  IF JSON_TYPE(p_items)<>'ARRAY' OR JSON_LENGTH(p_items) NOT BETWEEN 1 AND 100 THEN
+    SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT='An order needs 1 to 100 product lines';
+  END IF;
+  IF EXISTS (
+    SELECT 1 FROM JSON_TABLE(p_items,'$[*]' COLUMNS(
+      product_id DECIMAL(15,3) PATH '$.product_id', quantity DECIMAL(15,3) PATH '$.quantity')) j
+    LEFT JOIN products p ON p.id=j.product_id AND p.active=1
+    WHERE p.id IS NULL OR j.product_id<>FLOOR(j.product_id) OR j.quantity IS NULL
+       OR j.quantity<>FLOOR(j.quantity) OR j.quantity NOT BETWEEN 1 AND 100000
+  ) THEN
+    SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT='Use active products and positive whole quantities';
+  END IF;
+  IF EXISTS (SELECT product_id FROM JSON_TABLE(p_items,'$[*]' COLUMNS(
+    product_id INT PATH '$.product_id')) j GROUP BY product_id HAVING COUNT(*)>1) THEN
+    SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT='Combine duplicate products into one line';
+  END IF;
+  INSERT INTO orders(customer_id,route_id,delivery_date,address,instructions)
+    VALUES(p_customer,p_route,p_date,TRIM(p_address),COALESCE(p_instructions,''));
+  SET v_order=LAST_INSERT_ID();
+  INSERT INTO order_items(order_id,product_id,quantity,unit_price,space_rate)
+    SELECT v_order,p.id,j.quantity,p.unit_price,p.space_rate
+    FROM JSON_TABLE(p_items,'$[*]' COLUMNS(product_id INT PATH '$.product_id',
+      quantity INT PATH '$.quantity')) j JOIN products p ON p.id=j.product_id;
+  COMMIT;
+  SELECT v_order id,'Order placed' message;
+END$$
 DELIMITER ;
