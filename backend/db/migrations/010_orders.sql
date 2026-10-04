@@ -23,3 +23,16 @@ CREATE TABLE orders (
   INDEX ix_orders_date(placed_at),
   INDEX ix_orders_status_route(status,route_id)
 ) ENGINE=InnoDB;
+CREATE TABLE order_items (
+  order_id INT NOT NULL,
+  product_id INT NOT NULL,
+  quantity INT NOT NULL,
+  unit_price DECIMAL(12,2) NOT NULL,
+  space_rate DECIMAL(10,3) NOT NULL,
+  line_total DECIMAL(16,2) GENERATED ALWAYS AS (quantity*unit_price) STORED,
+  PRIMARY KEY(order_id,product_id),
+  FOREIGN KEY(order_id) REFERENCES orders(id),
+  FOREIGN KEY(product_id) REFERENCES products(id),
+  CHECK(quantity BETWEEN 1 AND 100000),
+  CHECK(unit_price>0), CHECK(space_rate>0)
+) ENGINE=InnoDB;
