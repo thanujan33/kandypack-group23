@@ -1,0 +1,8 @@
+CREATE TABLE products (
+  id INT PRIMARY KEY AUTO_INCREMENT,
+  name VARCHAR(100) NOT NULL UNIQUE,
+  unit_price DECIMAL(12,2) NOT NULL,
+  space_rate DECIMAL(10,3) NOT NULL,
+  active BOOLEAN NOT NULL DEFAULT TRUE,
+  CHECK (unit_price > 0), CHECK (space_rate > 0)
+) ENGINE=InnoDB;
