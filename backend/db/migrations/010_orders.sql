@@ -47,4 +47,10 @@ BEGIN
     SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT='Orders require at least 7 days notice';
   END IF;
 END$$
+CREATE TRIGGER orders_lead_update BEFORE UPDATE ON orders FOR EACH ROW
+BEGIN
+  IF NEW.delivery_date < DATE(NEW.placed_at)+INTERVAL 7 DAY THEN
+    SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT='Orders require at least 7 days notice';
+  END IF;
+END$$
 DELIMITER ;
