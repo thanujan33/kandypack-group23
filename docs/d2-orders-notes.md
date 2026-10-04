@@ -45,6 +45,16 @@ Owner: D2 · Branch: `feature/d2-orders` · Reviewer: D1 · I review: D3
   They arrive in Phase 2, so for now an order can be inserted with any
   delivery date.
 
+### Phase 2 — lead-time triggers and `sp_place_order`
+
+- **Two places for the 7-day rule.** The procedure compares the requested date with `CURRENT_DATE`; the triggers compare `delivery_date` with the row's **own** `placed_at`. Because the public procedure never lets the caller set `placed_at`, customers cannot back-date; D5's privileged importer can still load honest historical rows. Both messages are the shared contract.
+- **Step-by-step trace of `sp_place_order`** with the real statement names: `START TRANSACTION` -> `SELECT id INTO v_lock FROM app_lock WHERE id=1 FOR UPDATE` (serialises business writes) -> validate customer/route -> validate date and address -> validate JSON array (1-100 lines) -> validate active products and whole positive quantities with `JSON_TABLE` -> reject duplicate products -> `INSERT INTO orders` -> `LAST_INSERT_ID()` -> `INSERT INTO order_items ... SELECT` (prices and space copied from `products`) -> `COMMIT` -> return `id` and `message`.
+- **Atomicity.** The `EXIT HANDLER FOR SQLEXCEPTION` runs `ROLLBACK` then `RESIGNAL`, so a failure never leaves an order header without lines (tested: counts unchanged after 30+ failing calls).
+- **`JSON_TABLE`** turns the request's JSON array into rows that can be joined with `products`.
+- **Why the client does not send prices or the customer**: SQL looks them up; the API passes the signed-in user's ID.
+- **Security:** `SQL SECURITY DEFINER` lets the low-privilege `kp_app` account create orders only through the procedure; direct inserts/updates on `orders`/`order_items` are denied (tested).
+- **Time zone:** the 7-day rule depends on the session time zone; the app uses +05:30, and every manual test had to `SET time_zone='+05:30'` because the Docker server defaults to UTC.
+
 ## Verification log
 
 ### Phase 0 — Environment check — 2026-10-04
