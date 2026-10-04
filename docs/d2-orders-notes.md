@@ -159,6 +159,14 @@ Extra checks on the finished file:
 - Verified cross-customer isolation: signed in as a different customer (`d2-cust2@kandypack.test`) and requested `GET /orders/1`. As required by the milestone, this returned `404 Not Found` instead of `403`, avoiding leaking the order's existence.
 - Verified role security: attempting to call `POST /orders` as an `ADMIN` correctly returned a `403 Forbidden`.
 
+### Phase 5 — React order page — 2026-10-05
+
+- Created `frontend/src/modules/orders/Page.jsx` using the milestone handbook code.
+- Successfully ran `npm run check` which passed (JavaScript syntax checked, and `vite build` completed without errors).
+- Tested manually via `npm run web`:
+  - Verified UI rendering and search filters.
+  - Placed a two-item order via the CUSTOMER cart interface.
+
 ## Bugs & trade-offs
 
 - **Defect fixed:** `sp_place_order` had a bug where `p_items IS NULL` bypassed JSON length checks, leaving a header without lines. Reproduced and fixed with `p_items IS NULL OR...` in one line.
