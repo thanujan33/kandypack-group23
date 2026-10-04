@@ -173,6 +173,31 @@ Extra checks on the finished file:
 - Verified the price-snapshot mechanism: previous order totals accurately remain locked to the price at the time of purchase, unaffected by later catalog changes.
 - Verified product retirement: retired products correctly disappear from the catalog/cart dropdowns while remaining correctly joined and visible in past order history lines.
 
+### Phase 7 — Acceptance checks — 2026-10-05
+
+| # | Test | Result |
+|---|---|---|
+| V1 | Valid 2-item order via UI | Passed. Order placed; totals calculated accurately by `v_order_totals`. |
+| V2 | Delivery = today + 6 days | Passed. API returned 409 "Orders require at least 7 days notice". |
+| V3 | Delivery = today + 7 days | Passed. Order accepted successfully. |
+| V4 | Quantity 0, -1, 1.5, 100001 | Passed. Rejected by API `int()` or DB constraints. |
+| V5 | Same `product_id` twice | Passed. Triggered DB error "Combine duplicate products into one line". |
+| V6 | Empty `items`, 101 items | Passed. Rejected by API array length validation. |
+| V7 | Invalid product ID / route | Passed. Rejected (foreign key constraint); header rolled back automatically. |
+| V8 | `customer_id` spoofing | Passed. Ignored; the API uses `req.user.id`. |
+| V9 | `unit_price` spoofing | Passed. Ignored; `sp_place_order` reads prices directly from `products`. |
+| V10 | `POST /orders` as staff | Passed. Correctly returns `403 Forbidden`. |
+| V11 | Customer B gets A's order | Passed. Correctly returns `404 Not Found`. |
+| V12 | Customer list isolation | Passed. Customer strictly sees own orders. |
+| V13 | Direct `INSERT` as `kp_app` | Passed. Denied by DB permissions (ERROR 1142). |
+| V14 | Change price after order | Passed. `v_order_totals` and `order_items` unaffected by price hike. |
+| V15 | Retire product | Passed. Hidden from `GET /products`, but previous orders intact. |
+| V16 | Duplicate product name | Passed. Returns 400 "This record already exists". |
+| V17 | From/To filters | Passed. Filter query conditions apply correctly in React and API. |
+| V18 | `EXPLAIN` query indexing | Passed. Uses `ix_orders_customer_date` using index condition. |
+| V19 | `npm run check` | Passed. Zero syntax or build errors. |
+| V20 | `npm test` | Pending (Awaiting D5 test runner merge to main). |
+
 ## Bugs & trade-offs
 
 - **Defect fixed:** `sp_place_order` had a bug where `p_items IS NULL` bypassed JSON length checks, leaving a header without lines. Reproduced and fixed with `p_items IS NULL OR...` in one line.
