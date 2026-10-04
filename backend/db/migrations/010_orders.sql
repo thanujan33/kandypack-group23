@@ -72,7 +72,7 @@ BEGIN
      p_address IS NULL OR CHAR_LENGTH(TRIM(p_address))=0 THEN
     SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT='Address and delivery date at least 7 days away are required';
   END IF;
-  IF JSON_TYPE(p_items)<>'ARRAY' OR JSON_LENGTH(p_items) NOT BETWEEN 1 AND 100 THEN
+  IF p_items IS NULL OR JSON_TYPE(p_items)<>'ARRAY' OR JSON_LENGTH(p_items) NOT BETWEEN 1 AND 100 THEN
     SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT='An order needs 1 to 100 product lines';
   END IF;
   IF EXISTS (
