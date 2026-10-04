@@ -151,6 +151,14 @@ Extra checks on the finished file:
 - Tested retiring a product by sending `PUT /products/:id` with `active: false`. Re-fetching via `GET` confirmed the product was successfully hidden from the active catalog.
 - Role-based security verified: login as `CUSTOMER` and attempting `POST /products` correctly failed with a `403 Forbidden` response.
 
+### Phase 4 — Scoped order endpoints — 2026-10-04
+
+- Appended `GET /orders`, `GET /orders/:id`, and `POST /orders` endpoints to `orders.routes.js`.
+- Verified order creation: signed in as a test customer and successfully placed a valid order via `POST /orders`, receiving a `201` status and `{id: 1, message: "Order placed"}` response.
+- Verified scoped listing: `GET /orders` for the placing customer correctly returned the new order row containing `customer`, `route`, `city` and `v_order_totals` derived fields (`total_value`, `total_quantity`, `total_space`).
+- Verified cross-customer isolation: signed in as a different customer (`d2-cust2@kandypack.test`) and requested `GET /orders/1`. As required by the milestone, this returned `404 Not Found` instead of `403`, avoiding leaking the order's existence.
+- Verified role security: attempting to call `POST /orders` as an `ADMIN` correctly returned a `403 Forbidden`.
+
 ## Bugs & trade-offs
 
 - **Defect fixed:** `sp_place_order` had a bug where `p_items IS NULL` bypassed JSON length checks, leaving a header without lines. Reproduced and fixed with `p_items IS NULL OR...` in one line.
