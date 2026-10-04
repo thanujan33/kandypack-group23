@@ -79,9 +79,51 @@ Owner: D2 · Branch: `feature/d2-orders` · Reviewer: D1 · I review: D3
 - Reminder: D5's seed needs empty `stores` and `orders`, so this test store and
   route must be cleared (or a disposable DB used) before the seed is run.
 
+### Phase 1 — Tables and view — 2026-10-04
+
+**Approach.** The migration runner stores a checksum of every applied file and
+refuses to run if an applied file changes. `010_orders.sql` will grow in
+Phase 2 (triggers and `sp_place_order`), so Phase 1 was **not** applied to the
+real `kandypack` database. Each step was applied to a freshly created scratch
+database `kandypack_d2_scratch` (`DB_NAME=kandypack_d2_scratch node
+scripts/migrate.js`), which was dropped afterwards. The real database still has
+only `001_core.sql`; `010_orders.sql` is applied to it at the end of Phase 2
+(together with `npm run provision`).
+
+The file was built up in four commits, each tested on a fresh scratch database:
+
+| Commit | Piece | What was tested on the scratch DB |
+|---|---|---|
+| `4af5513` | `products` | `010` applied cleanly. Valid product accepted. Rejected: duplicate name (1062), price 0, price -5 (3819, `products_chk_1`), space rate 0 (3819, `products_chk_2`). |
+| `ea13749` | `orders` | Valid order accepted with default status `PENDING`, `placed_at` filled in and empty `instructions`. Rejected: unknown customer, unknown route (1452 foreign key), status `BOGUS` (1265). `SHOW INDEX` showed the three named indexes; the ENUM order matches the contract. |
+| `3927be5` | `order_items` | Two lines inserted (6 x 125.00 = 750.00, 3 x 250.00 = 750.00). Rejected: duplicate `(order_id, product_id)` (1062), unknown order or product (1452), quantity 0, -2 and 100001 (3819), price 0, space 0 (3819), explicit `line_total` (3105). `line_total` is `STORED GENERATED` as `(quantity * unit_price)`. Primary key is `order_id,product_id`. |
+| `31486ee` | `v_order_totals` | View returned value 1500.00, quantity 9, space 6.000 for the worked example. |
+
+Extra checks on the finished file:
+
+- After changing the catalog price of product 1 from 125.00 to 150.00 the saved
+  line and `v_order_totals` still showed 1500.00 (price snapshot works).
+- Sum of `line_total` (1500.00) equals the sum of `v_order_totals.total_value`
+  (1500.00).
+- An order with no lines does not appear in `v_order_totals` (2 orders, 1 view
+  row). The order procedure in Phase 2 always inserts at least one line.
+- `EXPLAIN SELECT id,placed_at,status FROM orders WHERE customer_id=1 AND
+  placed_at>='2026-01-01'` used `ix_orders_customer_date` (type `range`,
+  "Using index condition"). The table has only a couple of rows, so this shows
+  what the index can do, not that every query on a tiny table must use it.
+- The final file (41 lines) was compared with the tables and view in the
+  Developer 2 handbook: identical.
+- The test inserts bypassed the 7-day rule because the lead-time triggers do not
+  exist yet (Phase 2).
+- Scratch database dropped. `kandypack` still contains only `001_core.sql`.
+
 ## Bugs & trade-offs
 
-_None recorded yet._
+- **Trade-off:** testing on a scratch database instead of the real one, to keep
+  the migration checksum valid while `010_orders.sql` is still being extended.
+  Mistake while doing this: the first scratch run used the wrong script path and
+  failed with `MODULE_NOT_FOUND` before touching any database; it was re-run from
+  the correct folder.
 
 ## Screenshots
 
