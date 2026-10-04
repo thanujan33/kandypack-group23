@@ -142,6 +142,15 @@ Extra checks on the finished file:
 - Direct `INSERT`/`UPDATE` as `kp_app` on `orders` were denied (ERROR 1142). `CALL` executed but was rejected with 45000 as expected. Zero orders created in real DB.
 - The scratch database was dropped.
 
+### Phase 3 — Catalog API — 2026-10-04
+
+- Created `backend/src/modules/orders.routes.js` with product endpoints (`GET /products`, `POST /products`, `PUT /products/:id`).
+- Tested via API with role `FACTORY` (password `abcdef123456`).
+- Successfully created products `Test cocoa` and `Retire Me` via `POST /products`.
+- Fetching products via `GET /products` retrieved both active products correctly.
+- Tested retiring a product by sending `PUT /products/:id` with `active: false`. Re-fetching via `GET` confirmed the product was successfully hidden from the active catalog.
+- Role-based security verified: login as `CUSTOMER` and attempting `POST /products` correctly failed with a `403 Forbidden` response.
+
 ## Bugs & trade-offs
 
 - **Defect fixed:** `sp_place_order` had a bug where `p_items IS NULL` bypassed JSON length checks, leaving a header without lines. Reproduced and fixed with `p_items IS NULL OR...` in one line.
