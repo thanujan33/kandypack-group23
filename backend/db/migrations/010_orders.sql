@@ -39,3 +39,12 @@ CREATE TABLE order_items (
 CREATE VIEW v_order_totals AS
 SELECT order_id,SUM(line_total) total_value,SUM(quantity) total_quantity,
   SUM(quantity*space_rate) total_space FROM order_items GROUP BY order_id;
+
+DELIMITER $$
+CREATE TRIGGER orders_lead_insert BEFORE INSERT ON orders FOR EACH ROW
+BEGIN
+  IF NEW.delivery_date < DATE(NEW.placed_at)+INTERVAL 7 DAY THEN
+    SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT='Orders require at least 7 days notice';
+  END IF;
+END$$
+DELIMITER ;
