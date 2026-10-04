@@ -167,6 +167,12 @@ Extra checks on the finished file:
   - Verified UI rendering and search filters.
   - Placed a two-item order via the CUSTOMER cart interface.
 
+### Phase 6 — History & catalog controls — 2026-10-05
+
+- Verified the From/To filters on the customer history table accurately reflect the date boundaries.
+- Verified the price-snapshot mechanism: previous order totals accurately remain locked to the price at the time of purchase, unaffected by later catalog changes.
+- Verified product retirement: retired products correctly disappear from the catalog/cart dropdowns while remaining correctly joined and visible in past order history lines.
+
 ## Bugs & trade-offs
 
 - **Defect fixed:** `sp_place_order` had a bug where `p_items IS NULL` bypassed JSON length checks, leaving a header without lines. Reproduced and fixed with `p_items IS NULL OR...` in one line.
