@@ -1,0 +1,54 @@
+import {useEffect,useState} from 'react';
+import {api} from '../../api';
+import {Table,Form,options,Banner} from '../../components/UI';
+export const roles=['CUSTOMER','ADMIN','FACTORY','STORE'];
+export const label='Orders';export const order=20;
+export default function Page({user}){
+  const [products,setProducts]=useState([]),[routes,setRoutes]=useState([]),[orders,setOrders]=useState([]);
+  const [cart,setCart]=useState([]),[detail,setDetail]=useState(null),[error,setError]=useState('');
+  const [from,setFrom]=useState(''),[to,setTo]=useState(''),[search,setSearch]=useState('');
+  async function load(){try{
+    const [p,d,o]=await Promise.all([api('/products'),api('/directory'),
+      api(`/orders?from=${from}&to=${to}`)]);
+    setProducts(p);setRoutes(d.routes);setOrders(o);
+  }catch(e){setError(e.message);}}
+  useEffect(()=>{load();},[]);
+  const save=async(url,body,method='POST')=>{const r=await api(url,{method,body});await load();return r;};
+  const [edit,setEdit]=useState(null);
+  return <><h1>Orders and products</h1><p role="alert" className="text-red-800">{error}</p>
+    <label>Search products<input value={search} onChange={e=>setSearch(e.target.value)}/></label>
+    <Table rows={products.filter(p=>p.name.toLowerCase().includes(search.toLowerCase()))}/>
+    {['ADMIN','FACTORY'].includes(user.role)&&<><h2>{edit?'Edit product '+edit:'Add product'}</h2>
+      <Form key={edit||'new'} fields={[{name:'name'},{name:'unit_price',type:'number',step:'0.01',min:'0.01'},
+        {name:'space_rate',type:'number',step:'0.001',min:'0.001'}]} onSubmit={b=>save(
+        edit?'/products/'+edit:'/products',b,edit?'PUT':'POST')}/>
+      <div className="flex flex-wrap gap-2 mt-3"><button onClick={()=>setEdit(null)}>New product</button>
+        {products.map(p=><button key={p.id} onClick={()=>setEdit(p.id)}>Edit {p.id}</button>)}
+      </div><h2>Retire product</h2><Form fields={[{name:'id',options:options(products)}]} button="Retire"
+        onSubmit={b=>save('/products/'+b.id,{...products.find(p=>p.id===Number(b.id)),active:false},'PUT')}/>
+    </>}
+    {user.role==='CUSTOMER'&&<><h2>Place an order</h2><Banner>Choose delivery at least 7 calendar days from today.
+      Select the coverage area containing your address. All goods originate in Kandy.</Banner>
+      <Form button="Add item" fields={[{name:'product_id',options:options(products)},
+        {name:'quantity',type:'number',min:1,max:100000}]} onSubmit={async b=>{
+        const id=Number(b.product_id),q=Number(b.quantity);
+        setCart(old=>old.some(i=>i.product_id===id)?old.map(i=>i.product_id===id?{...i,quantity:i.quantity+q}:i):[...old,{product_id:id,quantity:q}]);
+        return {message:'Added to order'};
+      }}/><Table rows={cart}/><button className="my-3" onClick={()=>setCart([])}>Clear items</button>
+      <Form button="Confirm order" fields={[{name:'route_id',label:'Delivery coverage area',
+        options:routes.map(r=>({value:r.id,label:`${r.city} | ${r.coverage_area}`}))},
+        {name:'address'},{name:'delivery_date',type:'date'},{name:'instructions',optional:true}]}
+        onSubmit={async b=>{const r=await save('/orders',{...b,items:cart});setCart([]);
+          return {message:`Order ${r.id} placed. You can track it below.`};}}/>
+    </>}
+    <h2>Order history and tracking</h2><div className="flex flex-wrap gap-3 mb-4">
+      <label>From<input type="date" value={from} onChange={e=>setFrom(e.target.value)}/></label>
+      <label>To<input type="date" value={to} onChange={e=>setTo(e.target.value)}/></label>
+      <button onClick={load}>Refresh history</button></div>
+    <Table rows={orders.map(o=>({id:o.id,customer:o.customer,city:o.city,route:o.route,
+      delivery_date:o.delivery_date,status:o.status,value_LKR:o.total_value}))}/>
+    <h2>Inspect an order</h2><Form button="View details" fields={[{name:'id',type:'number',min:1}]}
+      onSubmit={async b=>{setDetail(await api('/orders/'+b.id));return {message:'Details loaded'};}}/>
+    {detail&&<><Table rows={[detail.order]}/><Table rows={detail.items}/></>}
+  </>;
+}
