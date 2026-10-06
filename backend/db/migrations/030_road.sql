@@ -341,3 +341,332 @@ BEGIN
     );
   END IF;
 END$$
+
+
+CREATE PROCEDURE sp_schedule_delivery(
+  IN p_route INT,
+  IN p_truck INT,
+  IN p_driver INT,
+  IN p_assistant INT,
+  IN p_start DATETIME,
+  IN p_end DATETIME,
+  IN p_orders JSON
+)
+SQL SECURITY DEFINER
+BEGIN
+  DECLARE v_lock INT;
+  DECLARE v_trip INT;
+  DECLARE v_space DECIMAL(16,3);
+  DECLARE v_capacity DECIMAL(12,3);
+
+  DECLARE EXIT HANDLER FOR SQLEXCEPTION
+  BEGIN
+    ROLLBACK;
+    RESIGNAL;
+  END;
+
+  START TRANSACTION;
+
+  SELECT id
+  INTO v_lock
+  FROM app_lock
+  WHERE id = 1
+  FOR UPDATE;
+
+  IF p_start < NOW()
+    OR JSON_TYPE(p_orders) <> 'ARRAY'
+    OR JSON_LENGTH(p_orders) NOT BETWEEN 1 AND 100
+  THEN
+    SIGNAL SQLSTATE '45000'
+      SET MESSAGE_TEXT = 'Choose a future start and 1 to 100 orders';
+  END IF;
+
+  IF EXISTS(
+    SELECT 1
+    FROM JSON_TABLE(
+      p_orders,
+      '$[*]' COLUMNS(id INT PATH '$')
+    ) j
+    LEFT JOIN orders o ON o.id = j.id
+    WHERE o.id IS NULL
+      OR o.status <> 'AT_STORE'
+      OR o.route_id <> p_route
+      OR o.delivery_date <> DATE(p_start)
+  )
+  OR (
+    SELECT COUNT(DISTINCT id)
+    FROM JSON_TABLE(
+      p_orders,
+      '$[*]' COLUMNS(id INT PATH '$')
+    ) j
+  ) <> JSON_LENGTH(p_orders)
+  THEN
+    SIGNAL SQLSTATE '45000'
+      SET MESSAGE_TEXT =
+        'Orders must be unique, at store, on this route and due on the selected day';
+  END IF;
+
+  SELECT SUM(t.total_space)
+  INTO v_space
+  FROM v_order_totals t
+  JOIN JSON_TABLE(
+    p_orders,
+    '$[*]' COLUMNS(id INT PATH '$')
+  ) j
+    ON j.id = t.order_id;
+
+  SELECT capacity
+  INTO v_capacity
+  FROM trucks
+  WHERE id = p_truck;
+
+  IF v_space > v_capacity THEN
+    SIGNAL SQLSTATE '45000'
+      SET MESSAGE_TEXT = 'Selected orders exceed truck capacity';
+  END IF;
+
+  INSERT INTO delivery_trips(
+    route_id,
+    truck_id,
+    driver_id,
+    assistant_id,
+    planned_start,
+    planned_end
+  )
+  VALUES(
+    p_route,
+    p_truck,
+    p_driver,
+    p_assistant,
+    p_start,
+    p_end
+  );
+
+  SET v_trip = LAST_INSERT_ID();
+
+  INSERT INTO delivery_trip_orders(
+    trip_id,
+    order_id
+  )
+  SELECT v_trip,id
+  FROM JSON_TABLE(
+    p_orders,
+    '$[*]' COLUMNS(id INT PATH '$')
+  ) j;
+
+  UPDATE orders o
+  JOIN delivery_trip_orders x
+    ON x.order_id = o.id
+  SET o.status = 'SCHEDULED'
+  WHERE x.trip_id = v_trip;
+
+  COMMIT;
+
+  SELECT
+    v_trip id,
+    'Delivery reserved; dispatch at the actual start time' message;
+END$$
+
+
+CREATE PROCEDURE sp_dispatch_delivery(
+  IN p_trip INT
+)
+SQL SECURITY DEFINER
+BEGIN
+  DECLARE v_lock INT;
+
+  DECLARE EXIT HANDLER FOR SQLEXCEPTION
+  BEGIN
+    ROLLBACK;
+    RESIGNAL;
+  END;
+
+  START TRANSACTION;
+
+  SELECT id
+  INTO v_lock
+  FROM app_lock
+  WHERE id = 1
+  FOR UPDATE;
+
+  IF NOT EXISTS(
+    SELECT 1
+    FROM delivery_trips
+    WHERE id = p_trip
+      AND status = 'PLANNED'
+      AND DATE(planned_start) = CURRENT_DATE
+  )
+  THEN
+    SIGNAL SQLSTATE '45000'
+      SET MESSAGE_TEXT = 'Trip must be planned for today';
+  END IF;
+
+  UPDATE delivery_trips
+  SET
+    status = 'OUT',
+    actual_start = NOW()
+  WHERE id = p_trip;
+
+  UPDATE orders o
+  JOIN delivery_trip_orders x
+    ON x.order_id = o.id
+  SET o.status = 'OUT_FOR_DELIVERY'
+  WHERE x.trip_id = p_trip;
+
+  COMMIT;
+
+  SELECT 'Trip dispatched; actual start recorded' message;
+END$$
+
+
+CREATE PROCEDURE sp_cancel_delivery(
+  IN p_trip INT
+)
+SQL SECURITY DEFINER
+BEGIN
+  DECLARE v_lock INT;
+
+  DECLARE EXIT HANDLER FOR SQLEXCEPTION
+  BEGIN
+    ROLLBACK;
+    RESIGNAL;
+  END;
+
+  START TRANSACTION;
+
+  SELECT id
+  INTO v_lock
+  FROM app_lock
+  WHERE id = 1
+  FOR UPDATE;
+
+  IF NOT EXISTS(
+    SELECT 1
+    FROM delivery_trips
+    WHERE id = p_trip
+      AND status = 'PLANNED'
+  )
+  THEN
+    SIGNAL SQLSTATE '45000'
+      SET MESSAGE_TEXT = 'Only planned trips can be cancelled';
+  END IF;
+
+  UPDATE delivery_trips
+  SET status = 'CANCELLED'
+  WHERE id = p_trip;
+
+  UPDATE delivery_trip_orders
+  SET outcome = 'FAILED'
+  WHERE trip_id = p_trip;
+
+  UPDATE orders o
+  JOIN delivery_trip_orders x
+    ON x.order_id = o.id
+  SET o.status = 'AT_STORE'
+  WHERE x.trip_id = p_trip;
+
+  COMMIT;
+
+  SELECT 'Cancelled; orders and resources released' message;
+END$$
+
+
+CREATE PROCEDURE sp_return_delivery(
+  IN p_trip INT,
+  IN p_end DATETIME,
+  IN p_delivered JSON
+)
+SQL SECURITY DEFINER
+BEGIN
+  DECLARE v_lock INT;
+
+  DECLARE EXIT HANDLER FOR SQLEXCEPTION
+  BEGIN
+    ROLLBACK;
+    RESIGNAL;
+  END;
+
+  START TRANSACTION;
+
+  SELECT id
+  INTO v_lock
+  FROM app_lock
+  WHERE id = 1
+  FOR UPDATE;
+
+  IF NOT EXISTS(
+    SELECT 1
+    FROM delivery_trips
+    WHERE id = p_trip
+      AND status = 'OUT'
+      AND p_end > actual_start
+      AND p_end <= NOW()
+  )
+  THEN
+    SIGNAL SQLSTATE '45000'
+      SET MESSAGE_TEXT =
+        'Choose an active trip and an actual return time after its start and not in the future';
+  END IF;
+
+  IF JSON_TYPE(p_delivered) <> 'ARRAY'
+    OR EXISTS(
+      SELECT 1
+      FROM JSON_TABLE(
+        p_delivered,
+        '$[*]' COLUMNS(id INT PATH '$')
+      ) j
+      LEFT JOIN delivery_trip_orders x
+        ON x.order_id = j.id
+        AND x.trip_id = p_trip
+      WHERE x.order_id IS NULL
+    )
+  THEN
+    SIGNAL SQLSTATE '45000'
+      SET MESSAGE_TEXT = 'Delivered IDs must belong to this trip';
+  END IF;
+
+  UPDATE delivery_trips
+  SET
+    status = 'COMPLETED',
+    actual_end = p_end
+  WHERE id = p_trip;
+
+  UPDATE delivery_trip_orders x
+  SET outcome = IF(
+    EXISTS(
+      SELECT 1
+      FROM JSON_TABLE(
+        p_delivered,
+        '$[*]' COLUMNS(id INT PATH '$')
+      ) j
+      WHERE j.id = x.order_id
+    ),
+    'DELIVERED',
+    'FAILED'
+  )
+  WHERE trip_id = p_trip;
+
+  UPDATE orders o
+  JOIN delivery_trip_orders x
+    ON x.order_id = o.id
+  SET
+    o.status = IF(
+      x.outcome = 'DELIVERED',
+      'DELIVERED',
+      'AT_STORE'
+    ),
+    o.delivered_at = IF(
+      x.outcome = 'DELIVERED',
+      p_end,
+      NULL
+    )
+  WHERE x.trip_id = p_trip;
+
+  COMMIT;
+
+  SELECT
+    'Return saved. Failed orders are back at store. Review actual hours and late-route warnings.' message;
+END$$
+
+
+DELIMITER ;
