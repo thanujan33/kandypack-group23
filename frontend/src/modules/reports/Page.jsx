@@ -35,8 +35,7 @@ export default function Page({ user }) {
     const maximum = Math.max(1, ...chartRows.map(r => Number(r[metric]) || 0));
     return <><h1>{labels[report]}</h1><div className="flex flex-wrap gap-2 print:hidden">{reports.map(name =>
         <button key={name} onClick={() => { setReport(name); setRows([]); }}>{labels[name]}</button>)}</div>
-        <Banner>Sales use the order placed date and the saved order prices. Every accepted order counts as a sale,
-            as stated in the SRS. Unit volume and space volume are shown separately. Times use Asia/Colombo.</Banner>
+        <Banner>Sales use the order placed date and the saved order prices.  Unit volume and space volume are shown separately. Times use Asia/Colombo.</Banner>
         <Form key={report} fields={fields} button="Generate report" onSubmit={async b => {
             setRows(await api(`/reports/${report}?${new URLSearchParams(b)}`)); return { message: 'Report loaded' };
         }} /><div className="flex gap-2 my-4 print:hidden"><button onClick={csv}>Download CSV</button>
