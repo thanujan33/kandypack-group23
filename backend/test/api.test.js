@@ -185,3 +185,139 @@ test('server expires idle sessions and logout revokes a token', async () => {
     assert.equal((await request('/logout', tokens.factory, 'POST', {})).status, 200);
     assert.equal((await request('/me', tokens.factory)).status, 401);
 });
+test('role-based access control guards unauthorized mutations', async () => {
+    // Re-authenticate factory since the logout test revoked its initial token
+    const login = await request('/auth/login', null, 'POST', {
+        email: 'factory@kandypack.test', password: process.env.DEMO_PASSWORD
+    });
+    tokens.factory = login.body.token;
+
+    // 1. Non-admin cannot create staff accounts
+    const staffAttempt = await request('/staff-users', tokens.factory, 'POST', {
+        name: 'Unauthorized User', email: 'unauthorized@kandypack.test',
+        role: 'FACTORY', password: 'ValidPassword123!'
+    });
+    assert.equal(staffAttempt.status, 403);
+
+    // 2. Customer cannot create products
+    const productAttempt = await request('/products', tokens.customer1, 'POST', {
+        name: 'Unauthorized Product', unit_price: 100, space_rate: 1
+    });
+    assert.equal(productAttempt.status, 403);
+
+    // 3. Customer cannot create routes
+    const routeAttempt = await request('/routes', tokens.customer1, 'POST', {
+        store_id: 1, name: 'Unauthorized Route', coverage_area: 'Unauthorized Area', max_minutes: 60
+    });
+    assert.equal(routeAttempt.status, 403);
+
+    // 4. Customer and Factory users cannot access road fleet resources
+    assert.equal((await request('/road/resources', tokens.customer1)).status, 403);
+    assert.equal((await request('/road/resources', tokens.factory)).status, 403);
+});
+test('store managers are strictly isolated to their own store resources', async () => {
+    const colomboRes = await request('/road/resources', tokens.colombo);
+    assert.equal(colomboRes.status, 200);
+    const [[colomboStore]] = await c.query("SELECT id FROM stores WHERE city='Colombo'");
+    assert.ok(colomboRes.body.trucks.length > 0);
+    assert.ok(colomboRes.body.employees.length > 0);
+    for (const truck of colomboRes.body.trucks) {
+        assert.equal(truck.store_id, colomboStore.id);
+    }
+    for (const emp of colomboRes.body.employees) {
+        assert.equal(emp.store_id, colomboStore.id);
+    }
+});
+
+test('order cancellation allows customer to cancel pending orders and prevents cancelling active orders', async () => {
+    const [[route]] = await c.query('SELECT id FROM routes WHERE active=1 ORDER BY id LIMIT 1');
+    const [[product]] = await c.query('SELECT id FROM products WHERE active=1 ORDER BY id LIMIT 1');
+    const [[dates]] = await c.query('SELECT DATE_ADD(CURRENT_DATE,INTERVAL 10 DAY) delivery');
+
+    // 1. Customer creates a pending order
+    const created = await request('/orders', tokens.customer1, 'POST', {
+        route_id: route.id, address: 'Cancel test address', delivery_date: dates.delivery,
+        items: [{ product_id: product.id, quantity: 5 }]
+    });
+    assert.equal(created.status, 201);
+    const orderId = created.body.id;
+
+    // Re-authenticate customer2 since the idle session test expired its initial token
+    const c2 = await request('/auth/login', null, 'POST', {
+        email: 'customer2@kandypack.test', password: process.env.DEMO_PASSWORD
+    });
+    tokens.customer2 = c2.body.token;
+
+    try {
+        // 2. Another customer cannot cancel customer1's order
+        const unauthorizedCancel = await request(`/orders/${orderId}/cancel`, tokens.customer2, 'POST', {});
+        assert.equal(unauthorizedCancel.status, 409);
+        assert.match(unauthorizedCancel.body.error, /own orders/i);
+
+        // 3. Customer1 cancels their own pending order
+        const cancelRes = await request(`/orders/${orderId}/cancel`, tokens.customer1, 'POST', {});
+        assert.equal(cancelRes.status, 200);
+
+        const [[cancelledRow]] = await c.query('SELECT status FROM orders WHERE id=?', [orderId]);
+        assert.equal(cancelledRow.status, 'CANCELLED');
+
+        // 4. Cannot cancel an already cancelled order
+        const repeatCancel = await request(`/orders/${orderId}/cancel`, tokens.customer1, 'POST', {});
+        assert.equal(repeatCancel.status, 409);
+        assert.match(repeatCancel.body.error, /Only PENDING/i);
+    } finally {
+        // Always clean up test order so subsequent suites have exact 40 orders
+        await c.query('DELETE FROM order_items WHERE order_id=?', [orderId]);
+        await c.query('DELETE FROM orders WHERE id=?', [orderId]);
+    }
+});
+
+test('pagination limits and offsets constrain list queries', async () => {
+    // 1. Order pagination
+    const p1 = await request('/orders?limit=5&offset=0', tokens.admin);
+    assert.equal(p1.status, 200);
+    assert.equal(p1.body.length, 5);
+
+    const p2 = await request('/orders?limit=5&offset=5', tokens.admin);
+    assert.equal(p2.status, 200);
+    assert.equal(p2.body.length, 5);
+    assert.notEqual(p1.body[0].id, p2.body[0].id);
+
+    // 2. Manifest pagination
+    const m1 = await request('/rail/manifest?limit=3&offset=0', tokens.admin);
+    assert.equal(m1.status, 200);
+    assert.equal(m1.body.length, 3);
+});
+
+test('datetime validator rejects malformed timestamps and impossible calendar dates', async () => {
+    const [[store]] = await c.query('SELECT id FROM stores ORDER BY id LIMIT 1');
+
+    // 1. Malformed timestamp format
+    for (const badFormat of ['not-a-timestamp', '2026-02-10', '2026-02-10T10:00:00Z', '2026/02/10 10:00:00', '2026-2-10 10:00:00']) {
+        const r = await request('/trains', tokens.admin, 'POST', {
+            reference: 'TEST-TRAIN',
+            store_id: store.id,
+            departure_at: badFormat,
+            arrival_at: '2026-10-20 12:00:00',
+            capacity: 100
+        });
+        assert.equal(r.status, 400, `badFormat=${badFormat}`);
+        assert.match(r.body.error, /must be a valid timestamp in YYYY-MM-DD HH:MM:SS format/i);
+    }
+
+    // 2. Impossible calendar dates
+    for (const badDate of ['2026-02-30 08:00:00', '2025-02-29 08:00:00', '2026-13-10 08:00:00', '2026-04-31 08:00:00']) {
+        const r = await request('/trains', tokens.admin, 'POST', {
+            reference: 'TEST-TRAIN',
+            store_id: store.id,
+            departure_at: badDate,
+            arrival_at: '2026-10-20 12:00:00',
+            capacity: 100
+        });
+        assert.equal(r.status, 400, `badDate=${badDate}`);
+        assert.match(r.body.error, /must be a valid calendar date and time/i);
+    }
+});
+
+
+

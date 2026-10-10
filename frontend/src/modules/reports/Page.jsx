@@ -1,52 +1,214 @@
 import { useState } from 'react';
 import { api } from '../../api';
 import { Form, Table, Banner } from '../../components/UI';
-export const roles = ['ADMIN', 'FACTORY', 'CUSTOMER']; export const label = 'Reports'; export const order = 50;
+
+export const roles = ['ADMIN', 'FACTORY', 'CUSTOMER'];
+export const label = 'Reports';
+export const order = 50;
+
+const REPORT_ICONS = {
+  quarterly: 'trending_up',
+  products: 'inventory_2',
+  locations: 'pin_drop',
+  hours: 'more_time',
+  trucks: 'local_shipping',
+  history: 'history',
+  audit: 'security'
+};
+
 export default function Page({ user }) {
-    const customer = user.role === 'CUSTOMER';
-    const [report, setReport] = useState(customer ? 'history' : 'quarterly'), [rows, setRows] = useState([]);
-    const reports = customer ? ['history'] : ['quarterly', 'products', 'locations', 'hours', 'trucks', 'history', ...(user.role === 'ADMIN' ? ['audit'] : [])];
-    const labels = {
-        quarterly: 'Quarterly sales', products: 'Most ordered items', locations: 'City and route sales',
-        hours: 'Staff weekly hours', trucks: 'Monthly truck usage', history: 'Customer order history', audit: 'Audit log'
+  const customer = user.role === 'CUSTOMER';
+  const [report, setReport] = useState(customer ? 'history' : 'quarterly'),
+    [rows, setRows] = useState([]);
+  const reports = customer
+    ? ['history']
+    : ['quarterly', 'products', 'locations', 'hours', 'trucks', 'history', ...(user.role === 'ADMIN' ? ['audit'] : [])];
+
+  const labels = {
+    quarterly: 'Quarterly Sales Revenue',
+    products: 'Most Ordered Products',
+    locations: 'City & Route Sales',
+    hours: 'Staff Weekly Hours & Rosters',
+    trucks: 'Monthly Truck Utilization',
+    history: 'Customer Order History',
+    audit: 'Database Security Audit Trail'
+  };
+
+  const now = new Date(),
+    date = now.toLocaleDateString('en-CA', { timeZone: 'Asia/Colombo' });
+
+  function csv() {
+    if (!rows.length) return;
+    const keys = Object.keys(rows[0]);
+    const quote = value => {
+      let s = typeof value === 'object' ? JSON.stringify(value) : String(value ?? '');
+      if (/^[=+@\-\t\r]/.test(s)) s = "'" + s;
+      return '"' + s.replaceAll('"', '""') + '"';
     };
-    const now = new Date(), date = now.toLocaleDateString('en-CA', { timeZone: 'Asia/Colombo' });
-    function csv() {
-        if (!rows.length) return;
-        const keys = Object.keys(rows[0]);
-        const quote = value => {
-            let s = typeof value === 'object' ? JSON.stringify(value) : String(value ?? '');
-            // Prevent spreadsheet formula execution when opening exported user data.
-            if (/^[=+@\-\t\r]/.test(s)) s = "'" + s;
-            return '"' + s.replaceAll('"', '""') + '"';
-        };
-        const output = [keys, ...rows.map(r => keys.map(k => r[k]))].map(row => row.map(quote).join(',')).join('\r\n');
-        const url = URL.createObjectURL(new Blob(['\ufeff' + output], { type: 'text/csv;charset=utf-8' }));
-        const a = document.createElement('a'); a.href = url; a.download = `kandypack-${report}.csv`; a.click(); URL.revokeObjectURL(url);
-    }
-    let fields = [];
-    if (['quarterly', 'products', 'locations'].includes(report)) fields = [{ name: 'year', type: 'number', value: now.getFullYear(), min: 2000, max: 2100 },
-    { name: 'quarter', type: 'number', value: Math.floor(now.getMonth() / 3) + 1, min: 1, max: 4 }];
-    if (report === 'hours') fields = [{ name: 'week', type: 'date', value: date }];
-    if (report === 'trucks') fields = [{ name: 'month', type: 'month', value: date.slice(0, 7) }];
-    if (report === 'history' && !customer) fields = [{ name: 'customer_id', type: 'number', min: 1 }];
-    const metric = report === 'products' ? 'units' : report === 'trucks' ? 'actual_hours' : report === 'hours' ? 'actual_hours' : 'sales_LKR';
-    const chartRows = report === 'locations' ? rows.filter(r => r.level === 'CITY') : rows;
-    const maximum = Math.max(1, ...chartRows.map(r => Number(r[metric]) || 0));
-    return <><h1>{labels[report]}</h1><div className="flex flex-wrap gap-2 print:hidden">{reports.map(name =>
-        <button key={name} onClick={() => { setReport(name); setRows([]); }}>{labels[name]}</button>)}</div>
-        <Banner>Sales use the order placed date and the saved order prices.  Unit volume and space volume are shown separately. Times use Asia/Colombo.</Banner>
-        <Form key={report} fields={fields} button="Generate report" onSubmit={async b => {
-            setRows(await api(`/reports/${report}?${new URLSearchParams(b)}`)); return { message: 'Report loaded' };
-        }} /><div className="flex gap-2 my-4 print:hidden"><button onClick={csv}>Download CSV</button>
-            <button onClick={() => window.print()}>Print or save PDF</button></div>
-        {['quarterly', 'products', 'locations', 'hours', 'trucks'].includes(report) && <div className="card space-y-3">
-            <h2>{metric.replaceAll('_', ' ')}</h2>{chartRows.map((r, i) => <div key={i}><div className="flex justify-between text-sm">
-                <span>{r.product || r.name || r.plate || r.city || r.month}</span><span>{Number(r[metric] || 0).toFixed(2)}</span></div>
-                <div className="bg-stone-200 rounded h-3"><div className="bg-[#2F6F5E] rounded h-3"
-                    style={{ width: 100 * (Number(r[metric]) || 0) / maximum + '%' }} /></div></div>)}
-        </div>}
-        <Table rows={rows} />{report === 'trucks' && <p>Utilization assumes 8 available truck hours per calendar day.
-            Trips crossing a month boundary contribute hours to each month; the trip count belongs to its start month.</p>}
-    </>;
+    const output = [keys, ...rows.map(r => keys.map(k => r[k]))].map(row => row.map(quote).join(',')).join('\r\n');
+    const url = URL.createObjectURL(new Blob(['\ufeff' + output], { type: 'text/csv;charset=utf-8' }));
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `kandypack-${report}-${date}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  }
+
+  let fields = [];
+  if (['quarterly', 'products', 'locations'].includes(report))
+    fields = [
+      { name: 'year', label: 'Fiscal Year', type: 'number', value: now.getFullYear(), min: 2000, max: 2100 },
+      { name: 'quarter', label: 'Calendar Quarter (1–4)', type: 'number', value: Math.floor(now.getMonth() / 3) + 1, min: 1, max: 4 }
+    ];
+  if (report === 'hours') fields = [{ name: 'week', label: 'Week Containing Date', type: 'date', value: date }];
+  if (report === 'trucks') fields = [{ name: 'month', label: 'Billing Month (YYYY-MM)', type: 'month', value: date.slice(0, 7) }];
+  if (report === 'history' && !customer) fields = [{ name: 'customer_id', label: 'Customer Account ID', type: 'number', min: 1 }];
+
+  const metric =
+    report === 'products'
+      ? 'units'
+      : report === 'trucks'
+      ? 'actual_hours'
+      : report === 'hours'
+      ? 'actual_hours'
+      : 'sales_LKR';
+
+  const chartRows = report === 'locations' ? rows.filter(r => r.level === 'CITY') : rows;
+  const maximum = Math.max(1, ...chartRows.map(r => Number(r[metric]) || 0));
+
+  return (
+    <div className="space-y-6">
+      {/* Header Context */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-3 border-b border-slate-200/80 gap-3">
+        <div>
+          <h1 className="text-2xl font-bold tracking-tight text-slate-900">Analytics, Reporting & Audit Logs</h1>
+          <p className="text-xs text-slate-500 mt-0.5">
+            Database views, quarterly sales aggregation, fleet utilization, and immutable audit logs.
+          </p>
+        </div>
+        {rows.length > 0 && (
+          <div className="flex items-center gap-2 print:hidden self-start sm:self-auto">
+            <button
+              type="button"
+              onClick={csv}
+              className="bg-white text-slate-700 hover:bg-slate-50 border border-slate-300 text-xs flex items-center gap-1.5"
+            >
+              <span className="material-symbols-outlined text-[16px] text-emerald-600">file_download</span>
+              <span>Export CSV</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => window.print()}
+              className="bg-white text-slate-700 hover:bg-slate-50 border border-slate-300 text-xs flex items-center gap-1.5"
+            >
+              <span className="material-symbols-outlined text-[16px] text-blue-600">print</span>
+              <span>Print / PDF</span>
+            </button>
+          </div>
+        )}
+      </div>
+
+      {/* Report Selector Pills */}
+      <div className="flex flex-wrap gap-1.5 p-1.5 rounded-xl bg-slate-100 border border-slate-200/80 print:hidden shadow-2xs">
+        {reports.map(name => {
+          const active = report === name;
+          const icon = REPORT_ICONS[name] || 'analytics';
+          return (
+            <button
+              key={name}
+              type="button"
+              onClick={() => {
+                setReport(name);
+                setRows([]);
+              }}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all shadow-none ${
+                active
+                  ? 'bg-blue-600 text-white shadow-xs font-bold'
+                  : 'bg-transparent text-slate-600 hover:text-slate-900 hover:bg-slate-200/50'
+              }`}
+            >
+              <span className="material-symbols-outlined text-[16px]">{icon}</span>
+              <span>{labels[name]}</span>
+            </button>
+          );
+        })}
+      </div>
+
+      <Banner type="info">
+        Financial sales metrics utilize the order placed date and locked order snapshot prices. Unit count and cargo volume are reported separately. All timestamps correspond to Sri Lanka time (Asia/Colombo).
+      </Banner>
+
+      {/* Query Parameters Form */}
+      <div className="card space-y-3 print:hidden">
+        <h2 className="text-base font-bold text-slate-900 mt-0">
+          <span className="material-symbols-outlined text-blue-700 text-[18px]">tune</span>
+          <span>Generate {labels[report]}</span>
+        </h2>
+        <Form
+          key={report}
+          fields={fields}
+          button="Run Analytics Query"
+          onSubmit={async b => {
+            const data = await api(`/reports/${report}?${new URLSearchParams(b)}`);
+            setRows(data);
+            return { message: `Loaded ${data.length} records for ${labels[report]}` };
+          }}
+        />
+      </div>
+
+      {/* Visual Analytics Bar Chart */}
+      {['quarterly', 'products', 'locations', 'hours', 'trucks'].includes(report) && rows.length > 0 && (
+        <div className="card space-y-4">
+          <div className="flex items-center justify-between pb-2 border-b border-slate-100">
+            <h2 className="text-sm font-bold text-slate-900 mt-0 uppercase tracking-wider">
+              {metric.replaceAll('_', ' ')} Breakdown
+            </h2>
+            <span className="text-xs text-slate-400">Peak Value: {maximum.toLocaleString()}</span>
+          </div>
+
+          <div className="space-y-3 pt-1">
+            {chartRows.slice(0, 10).map((r, i) => {
+              const labelText = r.product || r.name || r.plate || r.city || r.month || `Item #${i + 1}`;
+              const val = Number(r[metric] || 0);
+              const pct = (val / maximum) * 100;
+
+              return (
+                <div key={i} className="space-y-1">
+                  <div className="flex justify-between text-xs font-medium">
+                    <span className="text-slate-800">{labelText}</span>
+                    <span className="tabular-nums font-mono text-slate-900 font-semibold">
+                      {val.toLocaleString(undefined, { minimumFractionDigits: 1, maximumFractionDigits: 2 })}
+                    </span>
+                  </div>
+                  <div className="w-full bg-slate-100 rounded-full h-2.5 overflow-hidden">
+                    <div
+                      className="bg-gradient-to-r from-blue-600 to-indigo-600 h-full rounded-full transition-all duration-300"
+                      style={{ width: `${Math.max(2, pct)}%` }}
+                    />
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* Data Table View */}
+      <section className="space-y-3">
+        <div className="flex items-center justify-between">
+          <h2 className="text-lg font-bold text-slate-900">
+            <span className="material-symbols-outlined text-blue-700 text-[20px]">table_chart</span>
+            <span>Tabular Results ({rows.length})</span>
+          </h2>
+        </div>
+        <Table rows={rows} pageSize={15} />
+
+        {report === 'trucks' && (
+          <p className="text-xs text-slate-500 pt-1">
+            Truck utilization assumes 8 available operating hours per calendar day. Trips crossing month boundaries contribute split hours accordingly.
+          </p>
+        )}
+      </section>
+    </div>
+  );
 }

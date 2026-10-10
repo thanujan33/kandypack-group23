@@ -52,11 +52,16 @@ r.get('/orders',async(req,res)=>{
   if(req.user.role==='CUSTOMER'){where+=' AND o.customer_id=?';params.push(req.user.id);}
   if(req.user.role==='STORE'){where+=' AND rt.store_id=?';params.push(req.user.store_id||0);}
   if(from){where+=' AND o.placed_at>=?';params.push(from);}
-  if(to){where+=' AND o.placed_at<DATE_ADD(?,INTERVAL 1 DAY)';params.push(to);}
+  let paging = '';
+  if (req.query.limit !== undefined) {
+    const l = Math.min(int(req.query.limit, 'Limit'), 200);
+    const o = req.query.offset !== undefined ? Math.max(0, Number(req.query.offset) || 0) : 0;
+    paging = ` LIMIT ${l} OFFSET ${o}`;
+  }
   res.json(await read(`SELECT o.*,u.name customer,rt.name route,s.city,t.total_value,
     t.total_quantity,t.total_space FROM orders o JOIN users u ON u.id=o.customer_id
     JOIN routes rt ON rt.id=o.route_id JOIN stores s ON s.id=rt.store_id
-    JOIN v_order_totals t ON t.order_id=o.id WHERE ${where} ORDER BY o.id DESC`,params));
+    JOIN v_order_totals t ON t.order_id=o.id WHERE ${where} ORDER BY o.id DESC${paging}`,params));
 });
 r.get('/orders/:id',async(req,res)=>{
   const id=int(req.params.id);
@@ -77,6 +82,11 @@ r.post('/orders',roles('CUSTOMER'),async(req,res)=>{
     text(b.address,'Delivery address'),String(b.instructions||'').slice(0,500),
     text(b.delivery_date,'Delivery date',10),JSON.stringify(items)]);
   res.status(201).json(result[0]);
+});
+r.post('/orders/:id/cancel',roles('CUSTOMER','ADMIN'),async(req,res)=>{
+  const result=await call(req.user.id,'sp_cancel_order',[
+    int(req.params.id),req.user.id,req.user.role]);
+  res.json(result[0]||{message:'Order successfully cancelled'});
 });
 
 export default r;
