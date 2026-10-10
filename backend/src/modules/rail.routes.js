@@ -26,13 +26,21 @@ r.post('/rail/allocate',roles('ADMIN','FACTORY'),async(req,res)=>res.json(
   (await call(req.user.id,'sp_allocate_order',[int(req.body.order_id),int(req.body.train_trip_id)]))[0]));
 r.post('/trains/:id/dispatch',roles('ADMIN','FACTORY'),async(req,res)=>res.json(
   (await call(req.user.id,'sp_dispatch_train',[int(req.params.id)]))[0]));
-r.get('/rail/manifest',roles('ADMIN','FACTORY','STORE'),async(req,res)=>res.json(await read(
+r.get('/rail/manifest',roles('ADMIN','FACTORY','STORE'),async(req,res)=>{
+  let paging = '';
+  if (req.query.limit !== undefined) {
+    const l = Math.min(int(req.query.limit, 'Limit'), 200);
+    const o = req.query.offset !== undefined ? Math.max(0, Number(req.query.offset) || 0) : 0;
+    paging = ` LIMIT ${l} OFFSET ${o}`;
+  }
+  return res.json(await read(
   `SELECT a.*,t.reference,t.store_id,t.departure_at,t.arrival_at,t.status train_status,
     p.name product,u.name customer FROM train_allocations a
     JOIN train_trips t ON t.id=a.train_trip_id JOIN products p ON p.id=a.product_id
     JOIN orders o ON o.id=a.order_id JOIN users u ON u.id=o.customer_id
-    ${req.user.role==='STORE'?'WHERE t.store_id=?':''} ORDER BY a.id DESC`,
-  req.user.role==='STORE'?[req.user.store_id||0]:[])));
+    ${req.user.role==='STORE'?'WHERE t.store_id=?':''} ORDER BY a.id DESC${paging}`,
+  req.user.role==='STORE'?[req.user.store_id||0]:[]));
+});
 r.post('/rail/receive',roles('ADMIN','STORE'),async(req,res)=>{
   const [a]=await read(`SELECT t.store_id FROM train_allocations a JOIN train_trips t
     ON t.id=a.train_trip_id WHERE a.id=?`,[int(req.body.allocation_id)]);

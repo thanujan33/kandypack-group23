@@ -99,3 +99,42 @@ Step 3 required establishing an authoritative end-to-end specification for the t
 - **Test Suite Execution:** Ran `npm test`. All 23 integration tests passed (0 failures, duration 17.8s) against an isolated temporary MySQL test database.
 
 ---
+
+### Entry 004 — Step 4 Execution: Order Cancellation, Pagination, and Schema Expansion
+- **Date & Time:** 2026-10-10 17:03 IST
+- **Target Step:** Step 4 (Closing Known Gaps: Order Cancellation, Multi-Train Verification, and Pagination)
+- **Author/Agent:** Antigravity AI Assistant
+
+#### Context & Rationale
+Step 4 resolved several essential functional and scalability gaps:
+1. Customers lacked the ability to cancel an order, and the `orders.status` ENUM lacked a `CANCELLED` state.
+2. List queries on `/orders` and `/rail/manifest` were unbounded, presenting scalability bottlenecks under high data volume.
+3. Multi-train allocation spillover needed explicit verification and architectural alignment.
+4. Cross-platform Git line-ending discrepancies on Windows caused false-positive migration checksum mismatches in `migrate.js`.
+
+#### Changes Made
+1. **New Migration Created & Applied (`backend/db/migrations/050_order_cancellation.sql`):**
+   - Modified `orders.status` ENUM to append `'CANCELLED'`.
+   - Created stored procedure `sp_cancel_order(p_order, p_user, p_role)`:
+     - Enforces row locking with `app_lock` and `SELECT ... FOR UPDATE`.
+     - Validates order ownership (only owner or ADMIN can cancel).
+     - Validates order status is strictly `'PENDING'` (cannot cancel allocated or shipped orders).
+     - Transitions status to `'CANCELLED'`, automatically triggering audit trail logging.
+2. **Migration Runner Hardened (`backend/scripts/migrate.js`):**
+   - Updated checksum verification to accept normalized LF or CRLF checksums, preventing platform-specific checkout mismatches on Windows.
+3. **Backend API Endpoints Updated:**
+   - Added `POST /api/orders/:id/cancel` in `orders.routes.js` protected with `roles('CUSTOMER', 'ADMIN')`.
+   - Added query pagination (`?limit=` and `?offset=`) to `GET /api/orders` (capped at 200).
+   - Added query pagination (`?limit=` and `?offset=`) to `GET /api/rail/manifest` (capped at 200).
+4. **Frontend Integration (`frontend/src/modules/orders/Page.jsx`):**
+   - Added "Cancel a pending order" form in Customer view allowing one-click cancellation of pending orders.
+   - Added "Cancel Order" button in the Order Inspection drawer for pending orders.
+5. **Automated Test Coverage Expanded (`backend/test/api.test.js`):**
+   - Added tests verifying customer pending order cancellation, unauthorized cancel rejection, repeated cancel rejection, and robust `try/finally` test fixture cleanup.
+   - Added tests verifying pagination limits and offset slicing across `/orders` and `/rail/manifest`.
+
+#### Verification & Test Results
+- **Syntax & Bundle Verification:** `npm run check` passed with code 0 (Vite 7 frontend production build succeeded).
+- **Test Suite Execution:** `npm test` passed 25/25 integration tests (0 failures, duration 32.3s) across an isolated test database.
+
+---

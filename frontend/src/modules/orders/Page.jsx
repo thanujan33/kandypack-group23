@@ -66,8 +66,20 @@ export default function Page({user}){
     {errors.history?<p role="alert">Unable to load order history: {errors.history}. Please try refreshing.</p>:
       loading?<p role="status">Loading order history…</p>:<Table rows={orders.map(o=>({id:o.id,customer:o.customer,city:o.city,route:o.route,
       delivery_date:o.delivery_date,status:o.status,value_LKR:o.total_value}))}/>}
+    {user.role==='CUSTOMER'&&orders.some(o=>o.status==='PENDING')&&<div className="my-4 p-3 bg-amber-50 border border-amber-200 rounded">
+      <h3>Cancel a pending order</h3>
+      <Form button="Cancel order" fields={[{name:'id',label:'Select pending order',
+        options:orders.filter(o=>o.status==='PENDING').map(o=>({value:o.id,label:`Order #${o.id} · Due: ${o.delivery_date}`}))}]}
+        onSubmit={async b=>save(`/orders/${b.id}/cancel`,{})}/>
+    </div>}
     <h2>Inspect an order</h2><Form button="View details" fields={[{name:'id',type:'number',min:1}]}
       onSubmit={async b=>{setDetail(await api('/orders/'+b.id));return {message:'Details loaded'};}}/>
-    {detail&&<><Table rows={[detail.order]}/><Table rows={detail.items}/></>}
+    {detail&&<><Table rows={[detail.order]}/><Table rows={detail.items}/>
+      {detail.order?.status==='PENDING'&&(user.role==='CUSTOMER'||user.role==='ADMIN')&&<button
+        className="mt-3 bg-red-600 text-white px-3 py-1.5 rounded"
+        onClick={async()=>{await save(`/orders/${detail.order.id}/cancel`,{});setDetail(null);}}>
+        Cancel order #{detail.order.id}
+      </button>}
+    </>}
   </>;
 }

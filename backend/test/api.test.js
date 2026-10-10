@@ -229,3 +229,64 @@ test('store managers are strictly isolated to their own store resources', async 
     }
 });
 
+test('order cancellation allows customer to cancel pending orders and prevents cancelling active orders', async () => {
+    const [[route]] = await c.query('SELECT id FROM routes WHERE active=1 ORDER BY id LIMIT 1');
+    const [[product]] = await c.query('SELECT id FROM products WHERE active=1 ORDER BY id LIMIT 1');
+    const [[dates]] = await c.query('SELECT DATE_ADD(CURRENT_DATE,INTERVAL 10 DAY) delivery');
+
+    // 1. Customer creates a pending order
+    const created = await request('/orders', tokens.customer1, 'POST', {
+        route_id: route.id, address: 'Cancel test address', delivery_date: dates.delivery,
+        items: [{ product_id: product.id, quantity: 5 }]
+    });
+    assert.equal(created.status, 201);
+    const orderId = created.body.id;
+
+    // Re-authenticate customer2 since the idle session test expired its initial token
+    const c2 = await request('/auth/login', null, 'POST', {
+        email: 'customer2@kandypack.test', password: process.env.DEMO_PASSWORD
+    });
+    tokens.customer2 = c2.body.token;
+
+    try {
+        // 2. Another customer cannot cancel customer1's order
+        const unauthorizedCancel = await request(`/orders/${orderId}/cancel`, tokens.customer2, 'POST', {});
+        assert.equal(unauthorizedCancel.status, 409);
+        assert.match(unauthorizedCancel.body.error, /own orders/i);
+
+        // 3. Customer1 cancels their own pending order
+        const cancelRes = await request(`/orders/${orderId}/cancel`, tokens.customer1, 'POST', {});
+        assert.equal(cancelRes.status, 200);
+
+        const [[cancelledRow]] = await c.query('SELECT status FROM orders WHERE id=?', [orderId]);
+        assert.equal(cancelledRow.status, 'CANCELLED');
+
+        // 4. Cannot cancel an already cancelled order
+        const repeatCancel = await request(`/orders/${orderId}/cancel`, tokens.customer1, 'POST', {});
+        assert.equal(repeatCancel.status, 409);
+        assert.match(repeatCancel.body.error, /Only PENDING/i);
+    } finally {
+        // Always clean up test order so subsequent suites have exact 40 orders
+        await c.query('DELETE FROM order_items WHERE order_id=?', [orderId]);
+        await c.query('DELETE FROM orders WHERE id=?', [orderId]);
+    }
+});
+
+test('pagination limits and offsets constrain list queries', async () => {
+    // 1. Order pagination
+    const p1 = await request('/orders?limit=5&offset=0', tokens.admin);
+    assert.equal(p1.status, 200);
+    assert.equal(p1.body.length, 5);
+
+    const p2 = await request('/orders?limit=5&offset=5', tokens.admin);
+    assert.equal(p2.status, 200);
+    assert.equal(p2.body.length, 5);
+    assert.notEqual(p1.body[0].id, p2.body[0].id);
+
+    // 2. Manifest pagination
+    const m1 = await request('/rail/manifest?limit=3&offset=0', tokens.admin);
+    assert.equal(m1.status, 200);
+    assert.equal(m1.body.length, 3);
+});
+
+
