@@ -6,13 +6,13 @@ export default function PasswordInput({label='Password',id,className='',...props
   const [visible,setVisible]=useState(false);
   const toggleLabel=visible?'Hide password':'Show password';
   return <div>
-    <label htmlFor={inputId}>{label}</label>
+    {label && <label htmlFor={inputId}>{label}</label>}
     <div className="relative mt-1">
       <input {...props} id={inputId} type={visible?'text':'password'}
         className={`mt-0 min-h-11 pr-14 ${className}`}/>
       <button type="button" aria-label={toggleLabel} title={toggleLabel}
         aria-controls={inputId} disabled={props.disabled}
-        className="absolute inset-y-0 right-0 flex w-11 items-center justify-center rounded-md bg-transparent p-0 text-[#12203A] hover:bg-orange-100 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-orange-500"
+        className="absolute inset-y-0 right-0 flex w-11 items-center justify-center rounded-md bg-transparent p-0 text-ink hover:bg-blue-50"
         onClick={()=>setVisible(value=>!value)}>
         <svg width="20" height="20" viewBox="0 0 24 24" fill="none"
           stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"
