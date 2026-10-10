@@ -254,7 +254,7 @@ export function Table({ rows, pageSize = 10 }) {
   );
 }
 
-export function Form({ fields, onSubmit, button = 'Save' }) {
+export function Form({ fields, onSubmit, button = 'Save', inputClassName = '' }) {
   const [feedback, setFeedback] = useState({ text: '', isError: false });
   const [busy, setBusy] = useState(false);
 
@@ -297,7 +297,8 @@ export function Form({ fields, onSubmit, button = 'Save' }) {
               <PasswordInput
                 id={f.name}
                 name={f.name}
-                label={f.label || f.name.replaceAll('_', ' ')}
+                label={null}
+                className={inputClassName}
                 defaultValue={f.value}
                 required={!f.optional}
                 min={f.min}
@@ -317,6 +318,7 @@ export function Form({ fields, onSubmit, button = 'Save' }) {
             ) : (
               <input
                 id={f.name}
+                className={inputClassName}
                 name={f.name}
                 type={f.type || 'text'}
                 defaultValue={f.value}

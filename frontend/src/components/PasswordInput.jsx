@@ -6,7 +6,7 @@ export default function PasswordInput({label='Password',id,className='',...props
   const [visible,setVisible]=useState(false);
   const toggleLabel=visible?'Hide password':'Show password';
   return <div>
-    <label htmlFor={inputId}>{label}</label>
+    {label && <label htmlFor={inputId}>{label}</label>}
     <div className="relative mt-1">
       <input {...props} id={inputId} type={visible?'text':'password'}
         className={`mt-0 min-h-11 pr-14 ${className}`}/>

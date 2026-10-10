@@ -110,6 +110,7 @@ function App() {
 
             <Form
               key={String(register)}
+              inputClassName={register ? '' : 'min-h-11'}
               button={register ? 'Create account' : 'Sign in'}
               fields={[
                 ...(register
