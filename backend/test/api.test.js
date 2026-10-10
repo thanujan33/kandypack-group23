@@ -185,3 +185,47 @@ test('server expires idle sessions and logout revokes a token', async () => {
     assert.equal((await request('/logout', tokens.factory, 'POST', {})).status, 200);
     assert.equal((await request('/me', tokens.factory)).status, 401);
 });
+test('role-based access control guards unauthorized mutations', async () => {
+    // Re-authenticate factory since the logout test revoked its initial token
+    const login = await request('/auth/login', null, 'POST', {
+        email: 'factory@kandypack.test', password: process.env.DEMO_PASSWORD
+    });
+    tokens.factory = login.body.token;
+
+    // 1. Non-admin cannot create staff accounts
+    const staffAttempt = await request('/staff-users', tokens.factory, 'POST', {
+        name: 'Unauthorized User', email: 'unauthorized@kandypack.test',
+        role: 'FACTORY', password: 'ValidPassword123!'
+    });
+    assert.equal(staffAttempt.status, 403);
+
+    // 2. Customer cannot create products
+    const productAttempt = await request('/products', tokens.customer1, 'POST', {
+        name: 'Unauthorized Product', unit_price: 100, space_rate: 1
+    });
+    assert.equal(productAttempt.status, 403);
+
+    // 3. Customer cannot create routes
+    const routeAttempt = await request('/routes', tokens.customer1, 'POST', {
+        store_id: 1, name: 'Unauthorized Route', coverage_area: 'Unauthorized Area', max_minutes: 60
+    });
+    assert.equal(routeAttempt.status, 403);
+
+    // 4. Customer and Factory users cannot access road fleet resources
+    assert.equal((await request('/road/resources', tokens.customer1)).status, 403);
+    assert.equal((await request('/road/resources', tokens.factory)).status, 403);
+});
+test('store managers are strictly isolated to their own store resources', async () => {
+    const colomboRes = await request('/road/resources', tokens.colombo);
+    assert.equal(colomboRes.status, 200);
+    const [[colomboStore]] = await c.query("SELECT id FROM stores WHERE city='Colombo'");
+    assert.ok(colomboRes.body.trucks.length > 0);
+    assert.ok(colomboRes.body.employees.length > 0);
+    for (const truck of colomboRes.body.trucks) {
+        assert.equal(truck.store_id, colomboStore.id);
+    }
+    for (const emp of colomboRes.body.employees) {
+        assert.equal(emp.store_id, colomboStore.id);
+    }
+});
+

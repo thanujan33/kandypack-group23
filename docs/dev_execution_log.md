@@ -42,3 +42,28 @@ Prior to this step, the repository `README.md` was outdated and reflected only t
 - **Admin Setup Script:** Executed `node backend/scripts/create-dev-admin.js` successfully, provisioning the local administrator test account.
 
 ---
+
+### Entry 002 — Step 2 Execution: Seed Fixtures Audit & Test Coverage Expansion
+- **Date & Time:** 2026-10-10 15:57 IST
+- **Target Step:** Step 2 (Seed Data & Expanded Integration Testing)
+- **Author/Agent:** Antigravity AI Assistant
+
+#### Context & Rationale
+Step 2 required verifying that `seed.js` fixtures correctly populate stores, routes, trucks, staff, products, and multi-stage orders, and ensuring comprehensive test coverage across Role-Based Access Control (RBAC) and store multi-tenancy boundaries. Furthermore, previous documentation marked `seed.js` and `test.js` as "not ready in current foundation", which needed synchronization.
+
+#### Changes Made
+1. **Test Suite Expansion (`backend/test/api.test.js`):**
+   - Added test `role-based access control guards unauthorized mutations`:
+     - Verifies non-admin accounts receive `403 Forbidden` when attempting to create staff (`POST /staff-users`).
+     - Verifies customer accounts receive `403 Forbidden` when attempting to create products (`POST /products`).
+     - Verifies customer accounts receive `403 Forbidden` when attempting to create delivery routes (`POST /routes`).
+     - Verifies customer and factory accounts receive `403 Forbidden` when attempting to access store road fleet resources (`GET /road/resources`).
+   - Added test `store managers are strictly isolated to their own store resources`:
+     - Verifies that when a store manager requests `/road/resources`, the query strictly scopes returned trucks and employees to the manager's assigned store (`store_id`), preventing cross-store data leakage.
+2. **Architecture Documentation Synchronized (`docs/kandypack_architecture.md`):**
+   - Updated table entries for `seed.js` and `test.js` from "Not ready in current foundation" to "Fully operational (21 passing test suites)".
+
+#### Verification & Test Results
+- **Test Suite Execution:** Ran `npm test`. All 21 tests passed (0 failures, duration 18.4s) on an isolated temporary MySQL database.
+
+---
