@@ -67,3 +67,35 @@ Step 2 required verifying that `seed.js` fixtures correctly populate stores, rou
 - **Test Suite Execution:** Ran `npm test`. All 21 tests passed (0 failures, duration 18.4s) on an isolated temporary MySQL database.
 
 ---
+
+### Entry 003 — Step 3 Execution: End-to-End Order Lifecycle Specification & Automated Testing
+- **Date & Time:** 2026-10-10 16:08 IST
+- **Target Step:** Step 3 (E2E Lifecycle Walkthrough & Verification)
+- **Author/Agent:** Antigravity AI Assistant
+
+#### Context & Rationale
+Step 3 required establishing an authoritative end-to-end specification for the two-leg distribution supply chain (`PENDING` -> `ALLOCATED` -> `ON_TRAIN` -> `AT_STORE` -> `SCHEDULED` -> `OUT_FOR_DELIVERY` -> `DELIVERED` and `FAILED` retry) and building an automated integration test exercising this exact sequence across multiple user roles (`CUSTOMER`, `FACTORY`, `STORE`) and verifying the audit trail (`audit_log`).
+
+#### Changes Made
+1. **Authoritative Specification Created (`docs/e2e-checklist.md`):**
+   - Detailed specification for each of the 7 lifecycle state transitions.
+   - For every step, documented: acting role, endpoint, stored procedure invoked, sample request payload, response status, database mutations, validation guards, and audit trail records.
+   - Documented the failed delivery recovery branch (`FAILED` outcome -> order returns to `AT_STORE` for re-scheduling).
+2. **Automated Lifecycle Test Suite Built (`backend/test/lifecycle.test.js`):**
+   - Implemented `end-to-end order lifecycle through all 7 states with audit verification`:
+     - Creates order via `POST /api/orders` by customer -> asserts `PENDING`.
+     - Schedules train trip and allocates order via `POST /api/rail/allocate` by factory -> asserts `ALLOCATED`.
+     - Dispatches train via `POST /api/trains/:id/dispatch` -> asserts `ON_TRAIN` and train `IN_TRANSIT`.
+     - Receives train cargo at depot via `POST /api/rail/receive` by store manager -> asserts `AT_STORE`.
+     - Schedules delivery trip via `POST /api/road/schedule` -> asserts `SCHEDULED` and trip `PLANNED`.
+     - Dispatches road delivery via `POST /api/road/trips/:id/dispatch` -> asserts `OUT_FOR_DELIVERY` and trip `OUT`.
+     - Logs trip return via `POST /api/road/trips/:id/return` -> asserts `DELIVERED` and `delivered_at` set.
+     - Verifies `audit_log` records actions with appropriate `actor_id` values.
+   - Implemented `failed delivery returns order outcome to FAILED and status to AT_STORE for re-scheduling`:
+     - Schedules delivery for an order at `AT_STORE`, dispatches trip, and returns with empty delivered list.
+     - Asserts order reverts to `AT_STORE` and `delivery_trip_orders.outcome` is `FAILED`.
+
+#### Verification & Test Results
+- **Test Suite Execution:** Ran `npm test`. All 23 integration tests passed (0 failures, duration 17.8s) against an isolated temporary MySQL test database.
+
+---
