@@ -22,3 +22,13 @@ export function checkStore(req, store) {
   if (req.user.role === 'STORE' && Number(store) !== Number(req.user.store_id))
     fail('This record belongs to another store', 403);
 }
+export function datetime(value, name = 'Timestamp') {
+  if (typeof value !== 'string' || !/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/.test(value.trim()))
+    fail(`${name} must be a valid timestamp in YYYY-MM-DD HH:MM:SS format`);
+  const trimmed = value.trim();
+  const [dPart, tPart] = trimmed.split(' ');
+  const d = new Date(dPart + 'T' + tPart + 'Z');
+  if (!Number.isFinite(d.getTime()) || d.toISOString().replace('T', ' ').slice(0, 19) !== trimmed)
+    fail(`${name} must be a valid calendar date and time`);
+  return trimmed;
+}

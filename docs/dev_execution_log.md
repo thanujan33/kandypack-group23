@@ -138,3 +138,41 @@ Step 4 resolved several essential functional and scalability gaps:
 - **Test Suite Execution:** `npm test` passed 25/25 integration tests (0 failures, duration 32.3s) across an isolated test database.
 
 ---
+
+### Entry 005 — Step 5 Execution: Security Audit, Hardening, and Validation Rigor
+- **Date & Time:** 2026-10-10 17:15 IST
+- **Target Step:** Step 5 (Security Audit & Production-Readiness Hardening)
+- **Author/Agent:** Antigravity AI Assistant
+
+#### Context & Rationale
+Step 5 focuses on hardening system resilience, validating untrusted user inputs, preventing SQL and privilege escalation vulnerabilities, and ensuring clean operational security:
+1. Railway scheduling and road trip dispatch accept datetime strings that bypassed strict calendar verification (allowing invalid calendar dates like Feb 30 or malformed ISO formats).
+2. The `kp_app` database user provisioning script (`scripts/provision.js`) required explicit execution permissions for newly added stored procedures (`sp_cancel_order`).
+3. Form validation failure notifications in the frontend were presented in low-contrast text without accessibility `role="alert"` semantics.
+4. Repository history and working trees required audit for committed secrets or temporary log artifacts.
+
+#### Changes Made
+1. **Timestamp Validator Implemented (`backend/src/http.js`):**
+   - Added `datetime(value, name)` validator requiring strict format `YYYY-MM-DD HH:MM:SS`.
+   - Performs two-step validation: regex format check followed by UTC `Date` parsing and ISO reconstruction check to guarantee calendar validity (e.g., rejects `2026-02-30 08:00:00`, `2025-02-29`, month `13`).
+2. **Route Input Hardening:**
+   - In `backend/src/modules/rail.routes.js`: Applied `datetime()` to `departure_at` and `arrival_at` on `POST /api/trains`.
+   - In `backend/src/modules/road.routes.js`: Applied `datetime()` to `planned_start` and `planned_end` on `POST /api/road/schedule` and `actual_end` on `POST /api/road/trips/:id/return`.
+3. **Least-Privilege Database Grants Provisioning (`backend/scripts/provision.js`):**
+   - Added `sp_cancel_order` to the explicit `GRANT EXECUTE` list for `'kp_app'@'%'`.
+   - Successfully executed `npm run provision`.
+4. **Secrets and Repository Integrity Audit:**
+   - Audited `.gitignore` and Git commit log. Verified zero committed `.env` secrets or runtime log dumps (`out.log`).
+5. **Frontend Accessible Error Alert Styling (`frontend/src/components/UI.jsx`):**
+   - Upgraded generic form feedback to track `isError` status.
+   - On submission failure, displays an accessible, high-contrast red alert box (`role="alert"`, `bg-red-50 text-red-700 border-red-200`) instead of subtle status text.
+6. **Automated Test Coverage Expanded (`backend/test/api.test.js`):**
+   - Added `datetime validator rejects malformed timestamps and impossible calendar dates` test verifying rejection of malformed strings, ISO timestamps, and invalid calendar dates (e.g. Feb 30, non-leap Feb 29, month 13) with HTTP 400.
+
+#### Verification & Test Results
+- **Syntax & Lint Checks:** `npm run check` passed with code 0.
+- **Frontend Production Build:** `npm run build` compiled 36 modules cleanly via Vite 7.
+- **Full Backend Test Suite:** `npm test` passed 26/26 tests (0 failures, duration 22.1s).
+
+---
+

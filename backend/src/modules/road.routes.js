@@ -1,6 +1,6 @@
 import {Router} from 'express';
 import {read,transaction,call} from '../db.js';
-import {roles,int,text,checkStore,fail} from '../http.js';
+import {roles,int,text,datetime,checkStore,fail} from '../http.js';
 
 const r=Router();
 
@@ -237,8 +237,8 @@ r.post('/road/schedule',async(req,res)=>{
           int(b.truck_id),
           int(b.driver_id),
           int(b.assistant_id),
-          text(b.planned_start,'Start',19),
-          text(b.planned_end,'End',19),
+          datetime(b.planned_start,'Start'),
+          datetime(b.planned_end,'End'),
           JSON.stringify(
             b.order_ids.map(x=>int(x))
           )
@@ -273,10 +273,9 @@ for(const action of ['dispatch','cancel','return']){
         fail('Delivered IDs must be an array');
 
       args.push(
-        text(
+        datetime(
           req.body.actual_end,
-          'Return time',
-          19
+          'Return time'
         ),
         JSON.stringify(
           req.body.delivered_ids.map(x=>int(x))

@@ -289,4 +289,35 @@ test('pagination limits and offsets constrain list queries', async () => {
     assert.equal(m1.body.length, 3);
 });
 
+test('datetime validator rejects malformed timestamps and impossible calendar dates', async () => {
+    const [[store]] = await c.query('SELECT id FROM stores ORDER BY id LIMIT 1');
+
+    // 1. Malformed timestamp format
+    for (const badFormat of ['not-a-timestamp', '2026-02-10', '2026-02-10T10:00:00Z', '2026/02/10 10:00:00', '2026-2-10 10:00:00']) {
+        const r = await request('/trains', tokens.admin, 'POST', {
+            reference: 'TEST-TRAIN',
+            store_id: store.id,
+            departure_at: badFormat,
+            arrival_at: '2026-10-20 12:00:00',
+            capacity: 100
+        });
+        assert.equal(r.status, 400, `badFormat=${badFormat}`);
+        assert.match(r.body.error, /must be a valid timestamp in YYYY-MM-DD HH:MM:SS format/i);
+    }
+
+    // 2. Impossible calendar dates
+    for (const badDate of ['2026-02-30 08:00:00', '2025-02-29 08:00:00', '2026-13-10 08:00:00', '2026-04-31 08:00:00']) {
+        const r = await request('/trains', tokens.admin, 'POST', {
+            reference: 'TEST-TRAIN',
+            store_id: store.id,
+            departure_at: badDate,
+            arrival_at: '2026-10-20 12:00:00',
+            capacity: 100
+        });
+        assert.equal(r.status, 400, `badDate=${badDate}`);
+        assert.match(r.body.error, /must be a valid calendar date and time/i);
+    }
+});
+
+
 

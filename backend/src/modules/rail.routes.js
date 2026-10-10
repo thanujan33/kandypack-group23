@@ -1,6 +1,6 @@
 import {Router} from 'express';
 import {read,transaction,call} from '../db.js';
-import {roles,int,text,fail,checkStore} from '../http.js';
+import {roles,int,text,datetime,fail,checkStore} from '../http.js';
 const r=Router();
 r.get('/trains',roles('ADMIN','FACTORY','STORE'),async(req,res)=>res.json(await read(
   `SELECT t.*,s.city FROM v_train_capacity t JOIN stores s ON s.id=t.store_id
@@ -8,8 +8,8 @@ r.get('/trains',roles('ADMIN','FACTORY','STORE'),async(req,res)=>res.json(await 
   req.user.role==='STORE'?[req.user.store_id||0]:[])));
 function trainValues(b){
   if(!Number.isFinite(Number(b.capacity))||Number(b.capacity)<=0)fail('Capacity must be positive');
-  return [text(b.reference,'Reference',80),int(b.store_id),text(b.departure_at,'Departure',19),
-    text(b.arrival_at,'Arrival',19),Number(b.capacity)];
+  return [text(b.reference,'Reference',80),int(b.store_id),datetime(b.departure_at,'Departure'),
+    datetime(b.arrival_at,'Arrival'),Number(b.capacity)];
 }
 r.post('/trains',roles('ADMIN','FACTORY'),async(req,res)=>{
   await transaction(req.user.id,c=>c.execute(`INSERT INTO train_trips

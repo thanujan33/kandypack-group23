@@ -12,13 +12,13 @@ export function Table({rows}) {
   </tr>)}</tbody></table></div>;
 }
 export function Form({fields,onSubmit,button='Save'}) {
-  const [message,setMessage]=useState(''),[busy,setBusy]=useState(false);
+  const [feedback,setFeedback]=useState({text:'',isError:false}),[busy,setBusy]=useState(false);
   return <form className="card space-y-3" onSubmit={async e=>{
     e.preventDefault(); const form=e.currentTarget;
     const b=Object.fromEntries(new FormData(form));
-    setBusy(true);setMessage('');
-    try {const result=await onSubmit(b); setMessage(result?.message||'Saved');}
-    catch(err){setMessage(err.message);} finally {setBusy(false);}
+    setBusy(true);setFeedback({text:'',isError:false});
+    try {const result=await onSubmit(b); setFeedback({text:result?.message||'Saved',isError:false});}
+    catch(err){setFeedback({text:err.message||'An unexpected error occurred',isError:true});} finally {setBusy(false);}
   }}>
     <div className="grid gap-3 md:grid-cols-2">{fields.map(f=>f.type==='password'?
       <PasswordInput key={f.name} name={f.name} label={f.label || f.name.replaceAll('_',' ')}
@@ -32,7 +32,9 @@ export function Form({fields,onSubmit,button='Save'}) {
         required={!f.optional} min={f.min} max={f.max} step={f.step} placeholder={f.placeholder}/>}
     </label>)}</div>
     <button disabled={busy}>{busy?'Saving…':button}</button>
-    <p role="status" className="text-sm text-teal-900">{message}</p>
+    {feedback.text&&<p role={feedback.isError?'alert':'status'} className={feedback.isError?
+      'text-sm p-2.5 rounded bg-red-50 text-red-700 border border-red-200 font-medium':
+      'text-sm p-2 rounded bg-teal-50 text-teal-800 border border-teal-200'}>{feedback.text}</p>}
   </form>;
 }
 export const options=(rows,label='name')=>rows.map(x=>({value:x.id,label:`${x.id} | ${x[label]}`}));
