@@ -1,4 +1,5 @@
 import React, {useState} from 'react';
+import PasswordInput from './PasswordInput';
 export function Table({rows}) {
   if(!rows?.length) return <p className="p-4 text-stone-500">No records yet.</p>;
   const keys=Object.keys(rows[0]);
@@ -19,7 +20,10 @@ export function Form({fields,onSubmit,button='Save'}) {
     try {const result=await onSubmit(b); setMessage(result?.message||'Saved');}
     catch(err){setMessage(err.message);} finally {setBusy(false);}
   }}>
-    <div className="grid gap-3 md:grid-cols-2">{fields.map(f=><label key={f.name}>
+    <div className="grid gap-3 md:grid-cols-2">{fields.map(f=>f.type==='password'?
+      <PasswordInput key={f.name} name={f.name} label={f.label || f.name.replaceAll('_',' ')}
+        defaultValue={f.value} required={!f.optional} min={f.min} max={f.max}
+        step={f.step} placeholder={f.placeholder}/>:<label key={f.name}>
       {f.label || f.name.replaceAll('_',' ')}
       {f.options?<select name={f.name} required defaultValue="">
         <option value="" disabled>Choose…</option>
