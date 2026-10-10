@@ -37,7 +37,7 @@ function App() {
   const Page = chosen?.default;
 
   return (
-    <div className="min-h-screen bg-[#F8FAFC] text-[#0B1C30] flex flex-col">
+    <div className="min-h-screen bg-canvas text-ink flex flex-col">
       {/* Top Application Bar */}
       <header className="sticky top-0 z-40 bg-[#0A1629] text-white border-b border-slate-800 shadow-sm px-4 md:px-8 py-3 flex items-center justify-between gap-4">
         <div className="flex items-center gap-3">
@@ -51,7 +51,7 @@ function App() {
                 Logistics OS
               </span>
             </div>
-            <p className="text-[11px] text-slate-400 mt-0.5">Bi-Modal Freight & Distribution · Group 23</p>
+            <p className="text-[11px] text-slate-300 mt-0.5">Bi-Modal Freight & Distribution · Group 23</p>
           </div>
         </div>
 
@@ -89,7 +89,7 @@ function App() {
             </div>
           </div>
         ) : (
-          <div className="flex items-center gap-2 text-xs text-slate-400">
+          <div className="flex items-center gap-2 text-xs text-slate-300">
             <span className="material-symbols-outlined text-[16px] text-amber-400">schedule</span>
             <span>All times Asia/Colombo</span>
           </div>
@@ -105,7 +105,7 @@ function App() {
                 <span className="material-symbols-outlined text-[26px]">local_shipping</span>
               </div>
               <h1 className="text-2xl font-bold text-slate-900">{register ? 'Create Customer Account' : 'Sign in to KandyPack'}</h1>
-              <p className="text-xs text-slate-500">Access rail timetables, dispatch manifests, and shipment tracking.</p>
+              <p className="text-xs text-muted">Access rail timetables, dispatch manifests, and shipment tracking.</p>
             </div>
 
             <Form
@@ -161,11 +161,11 @@ function App() {
                     onClick={() => setTab(m.label)}
                     className={`flex items-center gap-2 px-3.5 py-2 rounded-lg text-xs font-semibold transition-all whitespace-nowrap shadow-none ${
                       active
-                        ? 'bg-white text-blue-800 shadow-xs ring-1 ring-slate-200/80 font-bold'
+                        ? 'bg-white text-blue-800 hover:bg-blue-50 shadow-xs ring-1 ring-slate-200/80 font-bold'
                         : 'bg-transparent text-slate-600 hover:text-slate-900 hover:bg-slate-300/40'
                     }`}
                   >
-                    <span className={`material-symbols-outlined text-[17px] ${active ? 'text-blue-600' : 'text-slate-500'}`}>
+                    <span className={`material-symbols-outlined text-[17px] ${active ? 'text-blue-600' : 'text-muted'}`}>
                       {icon}
                     </span>
                     <span>{m.label}</span>
@@ -178,14 +178,14 @@ function App() {
             {Page ? (
               <Page key={chosen.label} user={user} />
             ) : (
-              <p className="text-sm text-slate-500">Feature modules will appear after their branches are merged.</p>
+              <p className="text-sm text-muted">Feature modules will appear after their branches are merged.</p>
             )}
           </>
         )}
       </main>
 
       {/* Footer */}
-      <footer className="mt-auto border-t border-slate-200 bg-white py-4 px-6 text-center text-xs text-slate-400 print:hidden">
+      <footer className="mt-auto border-t border-slate-200 bg-white py-4 px-6 text-center text-xs text-muted print:hidden">
         <p>KandyPack Logistics Platform · Semester 3 Database Systems · Group 23</p>
       </footer>
     </div>
