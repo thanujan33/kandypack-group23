@@ -94,6 +94,90 @@ test('reserve dispatch return and failed-order retry keep correct states', async
     const [[trip]] = await c.query('SELECT actual_end FROM delivery_trips WHERE id=?', [id]);
     assert.ok(trip.actual_end);
 });
+test('order history rejects malformed and impossible calendar dates', async () => {
+    for (const field of ['from', 'to']) {
+        for (const value of ['not-a-date', '2026-02-30', '2025-02-29', '1900-02-29',
+            '2026-04-31', '2026-00-10', '2026-13-01', '2026-01-00', '0000-01-01',
+            '2026-1-01', '2026-01-01T00:00:00Z', ' 2026-01-01 ']) {
+            const r = await request('/orders?' + new URLSearchParams({[field]:value}), tokens.customer1);
+            assert.equal(r.status, 400, `${field}=${value}`);
+            assert.match(r.body.error, /valid.*date/i);
+        }
+    }
+    const repeated = await request('/orders?from=2026-01-01&from=2026-01-02', tokens.customer1);
+    assert.equal(repeated.status, 400);
+});
+test('order history rejects reversed date ranges', async () => {
+    const r = await request('/orders?from=2026-10-11&to=2026-10-10', tokens.customer1);
+    assert.equal(r.status, 400);
+    assert.match(r.body.error, /on or before/i);
+});
+test('valid history filters preserve inclusive dates and customer scope', async () => {
+    const all = await request('/orders', tokens.customer1);
+    assert.equal(all.status, 200);
+    const empty = await request('/orders?from=&to=', tokens.customer1);
+    assert.deepEqual(empty.body, all.body);
+    const day = all.body[0].placed_at.slice(0, 10);
+    for (const filters of [{from:day}, {to:day}, {from:day,to:day}]) {
+        const r = await request('/orders?' + new URLSearchParams(filters), tokens.customer1);
+        assert.equal(r.status, 200);
+        assert.deepEqual(r.body.map(o=>o.id), all.body.filter(o=>{
+            const placed = o.placed_at.slice(0,10);
+            return (!filters.from || placed>=filters.from) && (!filters.to || placed<=filters.to);
+        }).map(o=>o.id));
+    }
+    for (const day of ['2024-02-29','2000-02-29']) {
+        assert.equal((await request(`/orders?from=${day}&to=${day}`, tokens.customer1)).status, 200);
+    }
+});
+test('invalid quantities leave no partial orders or items, including database limits', async () => {
+    const [[route]] = await c.query('SELECT id FROM routes WHERE active=1 ORDER BY id LIMIT 1');
+    const [products] = await c.query('SELECT id FROM products WHERE active=1 ORDER BY id LIMIT 2');
+    const [[dates]] = await c.query('SELECT DATE_ADD(CURRENT_DATE,INTERVAL 10 DAY) delivery');
+    const counts = async () => (await c.query(`SELECT
+        (SELECT COUNT(*) FROM orders) orders,(SELECT COUNT(*) FROM order_items) items`))[0][0];
+    const before = await counts();
+    for (const quantity of [true,false,null,[],[1],{},'', ' ',0,-1,1.5,'1.5',100001,'100001',
+        Number.MAX_SAFE_INTEGER+1,'Infinity','NaN',undefined]) {
+        const r = await request('/orders', tokens.customer1, 'POST', {
+            route_id:route.id,address:'Regression test',delivery_date:dates.delivery,
+            items:[{product_id:products[0].id,quantity:1},{product_id:products[1].id,quantity}]
+        });
+        assert.equal(r.status, 400, `quantity=${JSON.stringify(quantity)}`);
+        assert.match(r.body.error, /quantity/i);
+        assert.deepEqual(await counts(), before);
+    }
+    const [[customer]] = await c.query("SELECT id FROM users WHERE email='customer1@kandypack.test'");
+    for (const quantity of [0,1.5,100001]) {
+        await assert.rejects(c.query('CALL sp_place_order(?,?,?,?,?,?)', [customer.id,route.id,
+            'Regression test','',dates.delivery,JSON.stringify([{product_id:products[0].id,quantity}])]),
+            /whole quantities/);
+        assert.deepEqual(await counts(), before);
+    }
+});
+test('whole quantities retain supported numeric formats and upper boundary', async () => {
+    const [[route]] = await c.query('SELECT id FROM routes WHERE active=1 ORDER BY id LIMIT 1');
+    const [[product]] = await c.query('SELECT id FROM products WHERE active=1 ORDER BY id LIMIT 1');
+    const [[dates]] = await c.query('SELECT DATE_ADD(CURRENT_DATE,INTERVAL 10 DAY) delivery');
+    for (const quantity of [1,'2','3.0',' 4 ','5e0','0x6',100000]) {
+        const r = await request('/orders', tokens.customer1, 'POST', {
+            route_id:String(route.id),address:'Regression test',delivery_date:dates.delivery,
+            items:[{product_id:String(product.id),quantity}]
+        });
+        assert.equal(r.status, 201, JSON.stringify(r.body));
+        try {
+            const [[item]] = await c.query('SELECT quantity FROM order_items WHERE order_id=?',[r.body.id]);
+            assert.equal(item.quantity,Number(quantity));
+            const detail = await request('/orders/'+r.body.id,tokens.customer1);
+            assert.equal(detail.status,200);
+            assert.equal(detail.body.order.status,'PENDING');
+        } finally {
+            // Remove only the fixtures created here; the integration suite expects 40 seed orders.
+            await c.query('DELETE FROM order_items WHERE order_id=?',[r.body.id]);
+            await c.query('DELETE FROM orders WHERE id=?',[r.body.id]);
+        }
+    }
+});
 test('server expires idle sessions and logout revokes a token', async () => {
     await c.query(`UPDATE sessions s JOIN users u ON u.id=s.user_id
     SET s.last_seen=DATE_SUB(NOW(),INTERVAL 31 MINUTE) WHERE u.email='customer2@kandypack.test'`);
