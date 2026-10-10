@@ -1,15 +1,61 @@
 @import "tailwindcss";
+
 @layer base {
-  body { @apply bg-[#F6F2EA] text-[#23262B] font-sans; }
-  h1 { @apply text-3xl font-bold text-[#12203A] mb-4; }
-  h2 { @apply text-xl font-bold text-[#12203A] mt-6 mb-3; }
-  button { @apply rounded-md bg-[#12203A] px-4 py-2 text-white cursor-pointer disabled:opacity-50 disabled:cursor-wait; }
-  label { @apply block text-sm font-medium; }
-  input,select,textarea { @apply block w-full border border-stone-300 rounded-md bg-white px-3 py-2 mt-1; }
-  input[type=checkbox] { @apply inline w-auto mr-2; }
-  table { @apply w-full text-sm bg-white; }
-  th { @apply text-left bg-stone-200 px-3 py-3 whitespace-nowrap; }
-  td { @apply border-b border-stone-100 px-3 py-3; }
+  body {
+    font-family: 'Geist', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    @apply bg-[#F8FAFC] text-[#0B1C30] min-h-screen;
+  }
+  h1 {
+    @apply text-2xl md:text-3xl font-bold text-[#0B1C30] tracking-tight mb-2;
+  }
+  h2 {
+    @apply text-lg md:text-xl font-semibold text-[#0B1C30] tracking-tight mt-6 mb-3 flex items-center gap-2;
+  }
+  h3 {
+    @apply text-base font-semibold text-[#0B1C30] mb-2;
+  }
+  button {
+    @apply inline-flex items-center justify-center font-medium rounded-lg bg-[#004AC6] hover:bg-[#003EA8] px-4 py-2 text-white text-sm cursor-pointer shadow-xs transition-colors duration-150 disabled:opacity-50 disabled:cursor-not-allowed;
+  }
+  label {
+    @apply block text-xs font-semibold uppercase tracking-wider text-slate-600 mb-1;
+  }
+  input, select, textarea {
+    @apply block w-full border border-slate-300 rounded-lg bg-white px-3 py-2 text-sm text-[#0B1C30] placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600 transition-all mt-1;
+  }
+  input[type=checkbox] {
+    @apply inline w-auto mr-2 accent-blue-600;
+  }
+  table {
+    @apply w-full text-sm bg-white border-collapse;
+  }
+  th {
+    font-family: 'Geist', sans-serif;
+    @apply text-left bg-slate-100/90 text-slate-600 font-semibold text-xs uppercase tracking-wider px-3.5 py-3 border-b border-slate-200 whitespace-nowrap;
+  }
+  td {
+    @apply border-b border-slate-100 px-3.5 py-3 text-slate-800 align-middle;
+  }
+  tr:hover td {
+    @apply bg-slate-50/80;
+  }
 }
-@layer components { .card { @apply rounded-xl border border-stone-200 bg-[#FFFDF8] p-5; } }
-@media print { header,form,button { display:none!important; } body { background:white; } }
+
+@layer components {
+  .card {
+    @apply rounded-xl border border-slate-200 bg-white p-5 shadow-xs;
+  }
+  .tabular-nums {
+    font-variant-numeric: tabular-nums;
+    font-family: 'JetBrains Mono', monospace;
+  }
+}
+
+@media print {
+  header, form, button, nav {
+    display: none !important;
+  }
+  body {
+    background: white;
+  }
+}

@@ -1,36 +1,210 @@
-import React, {useEffect,useState} from 'react';
-import {api} from '../../api';
-import {Form,Table,options} from '../../components/UI';
-export const roles=['ADMIN','FACTORY'];
-export const label='Directory'; export const order=10;
-export default function Page({user}){
-  const [data,setData]=useState({stores:[],routes:[]}),[users,setUsers]=useState([]),[error,setError]=useState('');
-  async function load(){try{
-    setData(await api('/directory'));
-    if(user.role==='ADMIN')setUsers(await api('/users'));
-  }catch(e){setError(e.message);}}
-  useEffect(()=>{load();},[]);
-  const save=(url,method='POST')=>async body=>{const result=await api(url,{method,body});await load();return result;};
-  return <><h1>Stores and routes</h1><p role="alert">{error}</p><Table rows={data.stores}/>
-    {user.role==='ADMIN'&&<><h2>Add store</h2>
-      <Form button="Add store" fields={[{name:'city',label:'City'},{name:'location',label:'Location'}]}
-        onSubmit={save('/stores')}/></>}
-    <h2>Delivery coverage</h2><Table rows={data.routes}/><h2>Add route</h2>
-    <Form fields={[{name:'store_id',options:options(data.stores,'city')},{name:'name'},
-      {name:'coverage_area',label:'Unique coverage area code or name'},{name:'max_minutes',type:'number',min:1,max:480}]}
-      onSubmit={save('/routes')}/>
-    <h2>Retire a route</h2><Form button="Retire route" fields={[{name:'id',options:options(data.routes)}]}
-      onSubmit={b=>save('/routes/'+b.id,'PATCH')({active:false})}/>
-    {user.role==='ADMIN'&&<><h2>User access</h2><Table rows={users}/>
-      <Form fields={[{name:'id',options:options(users)},{name:'role',options:['ADMIN','FACTORY','STORE','CUSTOMER'].map(value=>({value,label:value}))},
-        {name:'active',options:[{value:'1',label:'Active'},{value:'0',label:'Disabled'}]}]}
-        onSubmit={b=>save('/users/'+b.id,'PATCH')({...b,active:b.active==='1'})}/>
-      <h2>Create staff login</h2><Form fields={[{name:'name'},{name:'email',type:'email'},
-        {name:'password',type:'password'},{name:'role',options:['ADMIN','FACTORY','STORE'].map(value=>({value,label:value}))}]}
-        onSubmit={save('/staff-users')}/>
-      <h2>Assign a store manager</h2><Form fields={[{name:'store_id',options:options(data.stores,'city')},
-        {name:'manager_id',options:options(users.filter(u=>u.role==='STORE'))}]}
-        onSubmit={b=>save('/stores/'+b.store_id+'/manager','PUT')(b)}/>
-    </>}
-  </>;
+import React, { useEffect, useState } from 'react';
+import { api } from '../../api';
+import { Form, Table, options, StatCard } from '../../components/UI';
+
+export const roles = ['ADMIN', 'FACTORY'];
+export const label = 'Directory';
+export const order = 10;
+
+export default function Page({ user }) {
+  const [data, setData] = useState({ stores: [], routes: [] }),
+    [users, setUsers] = useState([]),
+    [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
+
+  async function load() {
+    setLoading(true);
+    try {
+      setData(await api('/directory'));
+      if (user.role === 'ADMIN') setUsers(await api('/users'));
+      setError('');
+    } catch (e) {
+      setError(e.message);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  useEffect(() => {
+    load();
+  }, []);
+
+  const save = (url, method = 'POST') => async body => {
+    const result = await api(url, { method, body });
+    await load();
+    return result;
+  };
+
+  return (
+    <div className="space-y-6">
+      {/* Header Context */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-3 border-b border-slate-200/80 gap-3">
+        <div>
+          <h1 className="text-2xl font-bold tracking-tight text-slate-900">Stores, Coverage & User Administration</h1>
+          <p className="text-xs text-slate-500 mt-0.5">
+            Maintain regional depot stores, local coverage delivery routes, and role-based staff credentials.
+          </p>
+        </div>
+        <button
+          type="button"
+          onClick={load}
+          disabled={loading}
+          className="flex items-center gap-1.5 self-start sm:self-auto text-xs"
+        >
+          <span className="material-symbols-outlined text-[16px]">refresh</span>
+          <span>{loading ? 'Refreshing…' : 'Refresh Directory'}</span>
+        </button>
+      </div>
+
+      {error && (
+        <div role="alert" className="p-3 rounded-lg bg-rose-50 border border-rose-200 text-rose-800 text-xs font-medium">
+          {error}
+        </div>
+      )}
+
+      {/* KPI Stats */}
+      <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+        <StatCard title="Regional Stores" value={data.stores.length} subtitle="Hub destination depots" icon="store" color="blue" />
+        <StatCard title="Delivery Routes" value={data.routes.length} subtitle="Active coverage zones" icon="alt_route" color="teal" />
+        {user.role === 'ADMIN' && (
+          <StatCard title="Registered Users" value={users.length} subtitle="Staff, managers & clients" icon="manage_accounts" color="amber" />
+        )}
+      </div>
+
+      {/* Stores Section */}
+      <section className="space-y-4">
+        <div className="flex items-center justify-between">
+          <h2 className="text-lg font-bold text-slate-900 mt-0">
+            <span className="material-symbols-outlined text-blue-700 text-[20px]">warehouse</span>
+            <span>Regional Depot Stores</span>
+          </h2>
+        </div>
+        <Table rows={data.stores} />
+
+        {user.role === 'ADMIN' && (
+          <details className="card group">
+            <summary className="text-xs font-semibold text-blue-700 cursor-pointer list-none flex items-center gap-1">
+              <span className="material-symbols-outlined text-[16px] transition-transform group-open:rotate-90">chevron_right</span>
+              <span>Add New Regional Depot Store</span>
+            </summary>
+            <div className="mt-3 pt-3 border-t border-slate-100">
+              <Form
+                button="Create Store"
+                fields={[
+                  { name: 'city', label: 'City (e.g. Negombo)' },
+                  { name: 'location', label: 'Depot Physical Address / Landmark' }
+                ]}
+                onSubmit={save('/stores')}
+              />
+            </div>
+          </details>
+        )}
+      </section>
+
+      {/* Delivery Coverage Routes */}
+      <section className="space-y-4">
+        <h2 className="text-lg font-bold text-slate-900">
+          <span className="material-symbols-outlined text-blue-700 text-[20px]">map</span>
+          <span>Local Delivery Coverage Routes</span>
+        </h2>
+        <Table rows={data.routes} />
+
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <div className="card space-y-3">
+            <h3 className="text-sm font-bold text-slate-800 mt-0">Create New Route</h3>
+            <Form
+              fields={[
+                { name: 'store_id', label: 'Parent Regional Store', options: options(data.stores, 'city') },
+                { name: 'name', label: 'Route Identifier (e.g. Route A - Coastal)' },
+                { name: 'coverage_area', label: 'Unique Coverage Area Code' },
+                { name: 'max_minutes', label: 'Max Turnaround Time (Minutes)', type: 'number', min: 1, max: 480 }
+              ]}
+              button="Register Route"
+              onSubmit={save('/routes')}
+            />
+          </div>
+
+          <div className="card space-y-3">
+            <h3 className="text-sm font-bold text-slate-800 mt-0">Retire Coverage Route</h3>
+            <Form
+              button="Retire Route"
+              fields={[{ name: 'id', label: 'Select Active Route', options: options(data.routes) }]}
+              onSubmit={b => save(`/routes/${b.id}`, 'PATCH')({ active: false })}
+            />
+          </div>
+        </div>
+      </section>
+
+      {/* User Management & Access Control (Admin Only) */}
+      {user.role === 'ADMIN' && (
+        <section className="space-y-4 pt-4 border-t border-slate-200">
+          <h2 className="text-lg font-bold text-slate-900">
+            <span className="material-symbols-outlined text-blue-700 text-[20px]">admin_panel_settings</span>
+            <span>User Access & Role Privileges</span>
+          </h2>
+          <Table rows={users} />
+
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <div className="card space-y-3">
+              <h3 className="text-sm font-bold text-slate-800 mt-0">Update User Role / Status</h3>
+              <Form
+                fields={[
+                  { name: 'id', label: 'User Account', options: options(users) },
+                  {
+                    name: 'role',
+                    label: 'Assigned Role',
+                    options: ['ADMIN', 'FACTORY', 'STORE', 'CUSTOMER'].map(value => ({ value, label: value }))
+                  },
+                  {
+                    name: 'active',
+                    label: 'Account Status',
+                    options: [
+                      { value: '1', label: 'Active' },
+                      { value: '0', label: 'Disabled' }
+                    ]
+                  }
+                ]}
+                button="Update Access"
+                onSubmit={b => save(`/users/${b.id}`, 'PATCH')({ ...b, active: b.active === '1' })}
+              />
+            </div>
+
+            <div className="card space-y-3">
+              <h3 className="text-sm font-bold text-slate-800 mt-0">Create Staff Login</h3>
+              <Form
+                fields={[
+                  { name: 'name', label: 'Staff Member Name' },
+                  { name: 'email', label: 'Staff Email', type: 'email' },
+                  { name: 'password', label: 'Password (min 12 chars)', type: 'password' },
+                  {
+                    name: 'role',
+                    label: 'Assigned Role',
+                    options: ['ADMIN', 'FACTORY', 'STORE'].map(value => ({ value, label: value }))
+                  }
+                ]}
+                button="Provision Staff Account"
+                onSubmit={save('/staff-users')}
+              />
+            </div>
+
+            <div className="card space-y-3">
+              <h3 className="text-sm font-bold text-slate-800 mt-0">Assign Store Manager</h3>
+              <Form
+                fields={[
+                  { name: 'store_id', label: 'Regional Store', options: options(data.stores, 'city') },
+                  {
+                    name: 'manager_id',
+                    label: 'Store Manager User',
+                    options: options(users.filter(u => u.role === 'STORE'))
+                  }
+                ]}
+                button="Assign Manager"
+                onSubmit={b => save(`/stores/${b.store_id}/manager`, 'PUT')(b)}
+              />
+            </div>
+          </div>
+        </section>
+      )}
+    </div>
+  );
 }
