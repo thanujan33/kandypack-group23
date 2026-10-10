@@ -224,4 +224,44 @@ Step 6 aligns the user interface with the instrument-grade Precision Logistics G
 
 ---
 
+### Entry 007 — Step 7 Execution: Database Course Deliverables & Architectural Specifications
+- **Date & Time:** 2026-10-10 17:56 IST
+- **Target Step:** Step 7 (Database Course Deliverables & Architectural Documentation)
+- **Author/Agent:** Antigravity AI Assistant
+
+#### Context & Rationale
+Step 7 creates the academic database deliverables and formal architectural specifications for evaluation:
+1. Complete Entity-Relationship modeling across all 14 physical tables.
+2. Academic normalization evaluation (1NF through BCNF) and justification for intentional point-in-time pricing and packaging snapshots in `order_items`.
+3. Procedural SQL catalog covering 10 stored procedures, 1 stored function, 8 core triggers + dynamic audit triggers, and 6 views.
+4. Concurrency control analysis detailing the pessimistic row-locking serialization table `app_lock` under `READ COMMITTED` and greedy cursor loops.
+5. Analytical queries documentation for all 7 reporting endpoints with sample output fixtures.
+6. Real-world disaster recovery and backup verification testing against an isolated scratch database (`kandypack_scratch_restore`).
+
+#### Changes Made
+1. **Entity-Relationship Specification Created (`docs/er-diagram.md`):**
+   - Authored complete Mermaid `erDiagram` with all 14 tables, column types, PKs, FKs, and cardinalities.
+   - Authored Data Dictionary and Foreign Key reference matrix with referential actions (`RESTRICT`, `CASCADE`).
+2. **Database Design & Stored Logic Document Created (`docs/db-design.md`):**
+   - Documented academic normalization analysis (1NF, 2NF, 3NF, BCNF) for all relations.
+   - Documented rationale for immutable pricing snapshots in `order_items` (`unit_price`, `space_rate`, and generated `line_total`).
+   - Cataloged all stored routines with parameters, files, tables touched, and locking characteristics.
+   - Detailed pessimistic serialization via `app_lock` (`SELECT ... FOR UPDATE`), transaction isolation under `READ COMMITTED`, and cursor-based bin packing.
+   - Documented security audit trail architecture (`@actor` propagation and append-only trigger enforcement).
+3. **Analytics & Reporting Query Reference Created (`docs/reports.md`):**
+   - Documented all 7 analytics endpoints with parameters, underlying SQL statements, business interpretations, and sample JSON outputs.
+4. **Backup & Disaster Recovery Guide & Verification (`docs/backup-restore.md` & `backend/scripts/verify-restore.js`):**
+   - Executed `backend/scripts/backup.ps1` generating `backups/kandypack-20261010-175040.sql` (105,252 bytes).
+   - Created scratch database `kandypack_scratch_restore` in MySQL 8.4 container and restored backup dump.
+   - Executed `verify-restore.js` verifying 100% row count parity across all 14 tables, 12 routines, and 30 triggers.
+   - Safely purged scratch database following verification.
+
+#### Verification & Test Results
+- **Backend Syntax Check:** `npm run check` passed with code 0.
+- **Disaster Recovery Simulation:** 100% parity across all 14 tables, 12 routines, and 30 triggers between source and restored database.
+- **Backend Test Suite:** `npm test` passed 26/26 tests (0 failures).
+
+---
+
+
 
