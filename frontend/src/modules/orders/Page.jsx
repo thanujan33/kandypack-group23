@@ -46,6 +46,12 @@ export default function Page({ user }) {
     return r;
   };
 
+  const minDeliveryDate = (() => {
+    const d = new Date();
+    d.setDate(d.getDate() + 7);
+    return d.toLocaleDateString('en-CA', { timeZone: 'Asia/Colombo' });
+  })();
+
   const visibleProducts = products.filter(p =>
     p.name.toLowerCase().includes(search.toLowerCase())
   );
@@ -56,14 +62,31 @@ export default function Page({ user }) {
   ).length;
   const deliveredCount = orders.filter(o => o.status === 'DELIVERED').length;
 
+  const detailTotal = detail?.items?.reduce(
+    (sum, item) => sum + Number(item.line_total ?? (Number(item.quantity) * Number(item.unit_price))),
+    0
+  ) || Number(detail?.order?.total_value) || 0;
+
   return (
     <div className="space-y-6">
       {/* Context Title Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-3 border-b border-slate-200/80 gap-3">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight text-slate-900">Shipments & Order Management</h1>
+          <h1 className="text-2xl font-bold tracking-tight text-slate-900">
+            {user.role === 'CUSTOMER'
+              ? 'Your Orders & Consignments'
+              : user.role === 'STORE'
+              ? 'Depot Consignment Registry'
+              : 'Shipments & Order Management'}
+          </h1>
           <p className="text-xs text-slate-500 mt-0.5">
-            Manage product catalogs, place 7-day advance intermodal orders, and track consignment lifecycles.
+            {user.role === 'CUSTOMER'
+              ? 'Browse catalog products, place advance delivery orders, and track your active consignments.'
+              : user.role === 'STORE'
+              ? 'Monitor regional depot consignments, verify cross-docked inventory, and track fulfillment lifecycles.'
+              : user.role === 'FACTORY'
+              ? 'Manage catalog product specifications, plan advance dispatch volumes, and track consignment lifecycles.'
+              : 'Manage product catalogs, oversee intermodal network dispatches, and audit consignment lifecycles.'}
           </p>
         </div>
         <button
@@ -79,10 +102,34 @@ export default function Page({ user }) {
 
       {/* KPI Metric Overview Strip */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-        <StatCard title="Total Consignments" value={orders.length} subtitle="Recorded to date" icon="inventory_2" color="blue" />
-        <StatCard title="Pending Allocation" value={pendingCount} subtitle="Awaiting rail timetable" icon="hourglass_top" color="amber" />
-        <StatCard title="In-Transit Pipe" value={transitCount} subtitle="Rail & road network" icon="local_shipping" color="teal" />
-        <StatCard title="Delivered Final" value={deliveredCount} subtitle="Successfully received" icon="task_alt" color="emerald" />
+        <StatCard
+          title={user.role === 'CUSTOMER' ? 'Your Orders' : user.role === 'STORE' ? 'Depot Consignments' : 'Total Consignments'}
+          value={orders.length}
+          subtitle={orders.length ? `${orders.length} recorded` : 'No orders recorded'}
+          icon="inventory_2"
+          color="blue"
+        />
+        <StatCard
+          title="Pending Allocation"
+          value={pendingCount}
+          subtitle={pendingCount ? `${pendingCount} awaiting dispatch` : 'None pending'}
+          icon="hourglass_top"
+          color="amber"
+        />
+        <StatCard
+          title={user.role === 'CUSTOMER' ? 'In Transit' : 'In-Transit Pipe'}
+          value={transitCount}
+          subtitle={transitCount ? `${transitCount} in delivery network` : 'None in transit'}
+          icon="local_shipping"
+          color="teal"
+        />
+        <StatCard
+          title={user.role === 'CUSTOMER' ? 'Delivered' : 'Delivered Final'}
+          value={deliveredCount}
+          subtitle={deliveredCount ? `${deliveredCount} completed` : 'None delivered yet'}
+          icon="task_alt"
+          color="emerald"
+        />
       </div>
 
       {/* Product Catalog Section */}
@@ -90,7 +137,7 @@ export default function Page({ user }) {
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
           <h2 className="text-lg font-bold text-slate-900">
             <span className="material-symbols-outlined text-blue-700 text-[20px]">category</span>
-            <span>Products & Warehouse Inventory</span>
+            <span>Product Catalog & Space Specifications</span>
           </h2>
           <div className="w-full sm:w-72">
             <input
@@ -111,13 +158,16 @@ export default function Page({ user }) {
             <Banner type="warning">No products are currently available in the catalog.</Banner>
           ) : visibleProducts.length ? (
             <Table
-              rows={visibleProducts.map(p => ({
-                id: p.id,
-                name: p.name,
-                unit_price: p.unit_price,
-                space_rate: p.space_rate,
-                active: p.active
-              }))}
+              rows={visibleProducts.map(p => {
+                const row = {
+                  id: p.id,
+                  name: p.name,
+                  unit_price: p.unit_price,
+                  space_rate: p.space_rate
+                };
+                if (user.role !== 'CUSTOMER') row.active = p.active;
+                return row;
+              })}
             />
           ) : (
             <p className="text-xs text-slate-500">No products match &ldquo;{search}&rdquo;.</p>
@@ -125,48 +175,65 @@ export default function Page({ user }) {
         )}
 
         {/* Staff Catalog Operations */}
-        {['ADMIN', 'FACTORY'].includes(user.role) && (
-          <details className="mt-3 group">
-            <summary className="text-xs font-semibold text-blue-700 cursor-pointer hover:underline list-none flex items-center gap-1">
-              <span className="material-symbols-outlined text-[16px] transition-transform group-open:rotate-90">chevron_right</span>
-              <span>Catalog Maintenance (Add, Edit, Retire)</span>
-            </summary>
-            <div className="p-4 mt-2 rounded-xl bg-slate-50 border border-slate-200 space-y-4">
-              <h3>{edit ? `Edit Product #${edit}` : 'Add New Product'}</h3>
-              <Form
-                key={edit || 'new'}
-                fields={[
-                  { name: 'name', label: 'Product name' },
-                  { name: 'unit_price', label: 'Unit price (LKR)', type: 'number', step: '0.01', min: '0.01' },
-                  { name: 'space_rate', label: 'Space rate (cu/unit)', type: 'number', step: '0.001', min: '0.001' }
-                ]}
-                onSubmit={b => save(edit ? `/products/${edit}` : '/products', b, edit ? 'PUT' : 'POST')}
-              />
-              <div className="flex flex-wrap gap-2 pt-2">
-                <button type="button" className="text-xs bg-slate-200 text-slate-700 hover:bg-slate-300" onClick={() => setEdit(null)}>
-                  New Product
-                </button>
-                {products.map(p => (
-                  <button
-                    key={p.id}
-                    type="button"
-                    className="text-xs bg-white text-slate-700 border border-slate-300 hover:bg-slate-50"
-                    onClick={() => setEdit(p.id)}
-                  >
-                    Edit #{p.id} ({p.name})
+        {['ADMIN', 'FACTORY'].includes(user.role) && (() => {
+          const selectedProduct = edit ? products.find(p => p.id === Number(edit)) : null;
+          return (
+            <details className="mt-3 group">
+              <summary className="text-xs font-semibold text-blue-700 cursor-pointer hover:underline list-none flex items-center gap-1">
+                <span className="material-symbols-outlined text-[16px] transition-transform group-open:rotate-90">chevron_right</span>
+                <span>Catalog Maintenance (Add, Edit, Retire)</span>
+              </summary>
+              <div className="p-4 mt-2 rounded-xl bg-slate-50 border border-slate-200 space-y-4">
+                <h3>{edit ? `Edit Product #${edit}` : 'Add New Product'}</h3>
+                <Form
+                  key={edit || 'new'}
+                  fields={[
+                    { name: 'name', label: 'Product name', value: selectedProduct?.name },
+                    { name: 'unit_price', label: 'Unit price (LKR)', type: 'number', step: '0.01', min: '0.01', value: selectedProduct?.unit_price },
+                    { name: 'space_rate', label: 'Space rate (cu/unit)', type: 'number', step: '0.001', min: '0.001', value: selectedProduct?.space_rate }
+                  ]}
+                  button={edit ? 'Save Product Changes' : 'Create Product'}
+                  onSubmit={b => save(edit ? `/products/${edit}` : '/products', b, edit ? 'PUT' : 'POST')}
+                />
+                <div className="flex flex-wrap gap-2 pt-2">
+                  <button type="button" className="text-xs bg-slate-200 text-slate-700 hover:bg-slate-300" onClick={() => setEdit(null)}>
+                    + New Product
                   </button>
-                ))}
-              </div>
+                  {products.map(p => (
+                    <button
+                      key={p.id}
+                      type="button"
+                      className={`text-xs px-2.5 py-1 rounded border transition-colors ${
+                        edit === p.id ? 'bg-blue-600 text-white border-blue-600 font-semibold' : 'bg-white text-slate-700 border-slate-300 hover:bg-slate-50'
+                      }`}
+                      onClick={() => setEdit(p.id)}
+                    >
+                      Edit #{p.id} ({p.name})
+                    </button>
+                  ))}
+                </div>
 
-              <h3>Retire Product</h3>
-              <Form
-                fields={[{ name: 'id', label: 'Select product to retire', options: options(products) }]}
-                button="Retire Product"
-                onSubmit={b => save(`/products/${b.id}`, { ...products.find(p => p.id === Number(b.id)), active: false }, 'PUT')}
-              />
-            </div>
-          </details>
-        )}
+                <h3>Retire Product</h3>
+                <Form
+                  fields={[
+                    {
+                      name: 'id',
+                      label: 'Select product to retire',
+                      options: products
+                        .filter(p => p.active !== false)
+                        .map(p => ({
+                          value: p.id,
+                          label: `#${p.id} · ${p.name} (LKR ${p.unit_price})`
+                        }))
+                    }
+                  ]}
+                  button="Retire Product"
+                  onSubmit={b => save(`/products/${b.id}`, { ...products.find(p => p.id === Number(b.id)), active: false }, 'PUT')}
+                />
+              </div>
+            </details>
+          );
+        })()}
       </section>
 
       {/* Customer Ordering Workflow */}
@@ -244,7 +311,12 @@ export default function Page({ user }) {
                         options: routes.map(r => ({ value: r.id, label: `${r.city} | ${r.coverage_area}` }))
                       },
                       { name: 'address', label: 'Delivery street address' },
-                      { name: 'delivery_date', label: 'Requested delivery date (≥ 7 days ahead)', type: 'date' },
+                      {
+                        name: 'delivery_date',
+                        label: 'Requested delivery date (≥ 7 days ahead)',
+                        type: 'date',
+                        min: minDeliveryDate
+                      },
                       { name: 'instructions', label: 'Special delivery instructions', optional: true }
                     ]}
                     onSubmit={async b => {
@@ -286,16 +358,19 @@ export default function Page({ user }) {
           <p className="text-xs text-slate-500">Loading order registry…</p>
         ) : (
           <Table
-            rows={orders.map(o => ({
-              id: o.id,
-              customer: o.customer || user.name,
-              city: o.city,
-              route: o.route,
-              placed_at: o.placed_at?.slice(0, 10),
-              delivery_date: o.delivery_date,
-              status: o.status,
-              value_LKR: o.total_value
-            }))}
+            rows={orders.map(o => {
+              const row = { id: o.id };
+              if (user.role !== 'CUSTOMER') row.customer = o.customer || user.name;
+              return {
+                ...row,
+                city: o.city,
+                route: o.route,
+                placed_at: o.placed_at?.slice(0, 10),
+                delivery_date: o.delivery_date,
+                status: o.status,
+                value_LKR: o.total_value
+              };
+            })}
             pageSize={10}
           />
         )}
@@ -342,7 +417,7 @@ export default function Page({ user }) {
               label: 'Select order from registry or enter ID',
               options: orders.map(o => ({
                 value: o.id,
-                label: `#${o.id} · ${o.city} · ${o.status} · Due: ${o.delivery_date}`
+                label: `#${o.id} · ${o.customer ? o.customer + ' · ' : ''}${o.city} · ${o.status} · Due: ${o.delivery_date}`
               }))
             }
           ]}
@@ -362,7 +437,7 @@ export default function Page({ user }) {
             <div className="p-4 rounded-xl bg-slate-50 border border-slate-200/80 grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
               <div>
                 <span className="text-slate-400 font-medium uppercase tracking-wider block">Consignment ID</span>
-                <span className="font-bold text-slate-900 font-mono text-sm mt-0.5 block">#KP-{detail.order.id}</span>
+                <span className="font-bold text-slate-900 font-mono text-sm mt-0.5 block">#{detail.order.id}</span>
               </div>
               <div>
                 <span className="text-slate-400 font-medium uppercase tracking-wider block">Target Delivery</span>
@@ -375,7 +450,7 @@ export default function Page({ user }) {
               <div>
                 <span className="text-slate-400 font-medium uppercase tracking-wider block">Consignment Total</span>
                 <span className="font-bold text-slate-900 tabular-nums text-sm mt-0.5 block">
-                  LKR {Number(detail.order.total_value).toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                  LKR {detailTotal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                 </span>
               </div>
             </div>
@@ -383,7 +458,14 @@ export default function Page({ user }) {
             {/* Order Items Table */}
             <div>
               <h3 className="text-sm font-bold text-slate-800 mb-2">Manifest Line Items</h3>
-              <Table rows={detail.items} />
+              <Table
+                rows={detail.items.map(item => ({
+                  product: item.name,
+                  quantity: item.quantity,
+                  unit_price: item.unit_price,
+                  line_total: item.line_total ?? (Number(item.quantity) * Number(item.unit_price))
+                }))}
+              />
             </div>
 
             {/* Cancellation Option inside Inspection */}

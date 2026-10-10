@@ -98,6 +98,14 @@ export function Stepper({ currentStatus }) {
             <p className="text-xs text-rose-700 mt-0.5">This consignment was cancelled and removed from active fulfillment pipelines.</p>
           </div>
         </div>
+      ) : status === 'MISSING' ? (
+        <div className="my-4 p-4 rounded-xl bg-rose-50 border border-rose-200 text-rose-800 flex items-center gap-3">
+          <span className="material-symbols-outlined text-[28px] text-rose-600">report_problem</span>
+          <div>
+            <h4 className="font-semibold text-sm">Consignment Discrepancy (Missing)</h4>
+            <p className="text-xs text-rose-700 mt-0.5">This shipment encountered a transit discrepancy and is being reconciled by store operations.</p>
+          </div>
+        </div>
       ) : (
         <div className="pt-5 pb-2">
           <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-3">
@@ -297,7 +305,6 @@ export function Form({ fields, onSubmit, button = 'Save' }) {
               <PasswordInput
                 id={f.name}
                 name={f.name}
-                label={f.label || f.name.replaceAll('_', ' ')}
                 defaultValue={f.value}
                 required={!f.optional}
                 min={f.min}

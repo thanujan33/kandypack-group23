@@ -35,14 +35,21 @@ export default function Page({ user }) {
     return result;
   };
 
+  const staffCount = users.filter(u => u.role !== 'CUSTOMER').length;
+  const custCount = users.filter(u => u.role === 'CUSTOMER').length;
+
   return (
     <div className="space-y-6">
       {/* Header Context */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-3 border-b border-slate-200/80 gap-3">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight text-slate-900">Stores, Coverage & User Administration</h1>
+          <h1 className="text-2xl font-bold tracking-tight text-slate-900">
+            {user.role === 'ADMIN' ? 'Stores, Coverage & User Administration' : 'Depots & Delivery Coverage Directory'}
+          </h1>
           <p className="text-xs text-slate-500 mt-0.5">
-            Maintain regional depot stores, local coverage delivery routes, and role-based staff credentials.
+            {user.role === 'ADMIN'
+              ? 'Maintain regional depot stores, local coverage delivery routes, and role-based staff credentials.'
+              : 'Review regional depot stores and manage local delivery coverage routes and turnaround times.'}
           </p>
         </div>
         <button
@@ -64,10 +71,28 @@ export default function Page({ user }) {
 
       {/* KPI Stats */}
       <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-        <StatCard title="Regional Stores" value={data.stores.length} subtitle="Hub destination depots" icon="store" color="blue" />
-        <StatCard title="Delivery Routes" value={data.routes.length} subtitle="Active coverage zones" icon="alt_route" color="teal" />
+        <StatCard
+          title="Regional Stores"
+          value={data.stores.length}
+          subtitle={data.stores.length ? `${data.stores.length} depots active` : 'No depots'}
+          icon="store"
+          color="blue"
+        />
+        <StatCard
+          title="Delivery Routes"
+          value={data.routes.length}
+          subtitle={data.routes.length ? `${data.routes.length} active coverage zones` : 'No active routes'}
+          icon="alt_route"
+          color="teal"
+        />
         {user.role === 'ADMIN' && (
-          <StatCard title="Registered Users" value={users.length} subtitle="Staff, managers & clients" icon="manage_accounts" color="amber" />
+          <StatCard
+            title="Registered Users"
+            value={users.length}
+            subtitle={users.length ? `${staffCount} staff · ${custCount} clients` : 'No users registered'}
+            icon="manage_accounts"
+            color="amber"
+          />
         )}
       </div>
 
@@ -79,7 +104,13 @@ export default function Page({ user }) {
             <span>Regional Depot Stores</span>
           </h2>
         </div>
-        <Table rows={data.stores} />
+        <Table
+          rows={data.stores.map(s => ({
+            store_id: `#${s.id}`,
+            city: s.city,
+            location: s.location
+          }))}
+        />
 
         {user.role === 'ADMIN' && (
           <details className="card group">
@@ -107,7 +138,16 @@ export default function Page({ user }) {
           <span className="material-symbols-outlined text-blue-700 text-[20px]">map</span>
           <span>Local Delivery Coverage Routes</span>
         </h2>
-        <Table rows={data.routes} />
+        <Table
+          rows={data.routes.map(r => ({
+            route_id: `#${r.id}`,
+            route_name: r.name,
+            depot_city: r.city,
+            coverage_area: r.coverage_area,
+            max_turnaround: `${r.max_minutes} min`,
+            status: r.active ? 'Active' : 'Retired'
+          }))}
+        />
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           <div className="card space-y-3">
@@ -128,7 +168,16 @@ export default function Page({ user }) {
             <h3 className="text-sm font-bold text-slate-800 mt-0">Retire Coverage Route</h3>
             <Form
               button="Retire Route"
-              fields={[{ name: 'id', label: 'Select Active Route', options: options(data.routes) }]}
+              fields={[
+                {
+                  name: 'id',
+                  label: 'Select Active Route',
+                  options: data.routes.map(r => ({
+                    value: r.id,
+                    label: `${r.city} · ${r.name} (${r.coverage_area})`
+                  }))
+                }
+              ]}
               onSubmit={b => save(`/routes/${b.id}`, 'PATCH')({ active: false })}
             />
           </div>
@@ -142,14 +191,29 @@ export default function Page({ user }) {
             <span className="material-symbols-outlined text-blue-700 text-[20px]">admin_panel_settings</span>
             <span>User Access & Role Privileges</span>
           </h2>
-          <Table rows={users} />
+          <Table
+            rows={users.map(u => ({
+              user_id: `#${u.id}`,
+              name: u.name,
+              email: u.email,
+              role: u.role,
+              status: u.active ? 'Active' : 'Disabled'
+            }))}
+          />
 
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             <div className="card space-y-3">
               <h3 className="text-sm font-bold text-slate-800 mt-0">Update User Role / Status</h3>
               <Form
                 fields={[
-                  { name: 'id', label: 'User Account', options: options(users) },
+                  {
+                    name: 'id',
+                    label: 'User Account',
+                    options: users.map(u => ({
+                      value: u.id,
+                      label: `#${u.id} · ${u.name} (${u.role}) · ${u.email}`
+                    }))
+                  },
                   {
                     name: 'role',
                     label: 'Assigned Role',
@@ -195,7 +259,12 @@ export default function Page({ user }) {
                   {
                     name: 'manager_id',
                     label: 'Store Manager User',
-                    options: options(users.filter(u => u.role === 'STORE'))
+                    options: users
+                      .filter(u => u.role === 'STORE')
+                      .map(u => ({
+                        value: u.id,
+                        label: `${u.name} (${u.email})`
+                      }))
                   }
                 ]}
                 button="Assign Manager"

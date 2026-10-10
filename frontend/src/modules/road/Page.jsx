@@ -7,6 +7,7 @@ export const label = 'Road';
 export const order = 40;
 
 export default function Page({ user }) {
+  const today = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Colombo' }).format(new Date());
   const [directory, setDirectory] = useState({ stores: [], routes: [] }),
     [store, setStore] = useState(user.store_id || 1);
   const [resources, setResources] = useState({ trucks: [], employees: [] }),
@@ -18,8 +19,14 @@ export default function Page({ user }) {
     [returnTrip, setReturnTrip] = useState(''),
     [tripOrders, setTripOrders] = useState([]);
   const [delivered, setDelivered] = useState([]),
-    [week, setWeek] = useState('');
+    [week, setWeek] = useState(today);
   const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    if (user?.role === 'STORE' && user?.store_id) {
+      setStore(user.store_id);
+    }
+  }, [user]);
 
   async function load() {
     setLoading(true);
@@ -55,9 +62,14 @@ export default function Page({ user }) {
   const localRoutes = directory.routes.filter(r => r.store_id === Number(store));
   const localOrders = orders.filter(o => o.status === 'AT_STORE' && o.route_id === Number(route));
   const activeTrucks = resources.trucks.filter(t => t.active);
+  const trucksOnTrip = resources.trucks.filter(t => t.live_status === 'ON_TRIP').length;
   const activeDrivers = resources.employees.filter(e => e.role === 'DRIVER' && e.active);
   const activeAssistants = resources.employees.filter(e => e.role === 'ASSISTANT' && e.active);
   const currentTrips = trips.filter(t => t.store_id === Number(store));
+  const plannedTripsCount = currentTrips.filter(t => t.status === 'PLANNED').length;
+  const outTripsCount = currentTrips.filter(t => t.status === 'OUT').length;
+  const completedTripsCount = currentTrips.filter(t => t.status === 'COMPLETED').length;
+  const currentStore = directory.stores.find(s => s.id === Number(store));
 
   return (
     <div className="space-y-6">
@@ -88,25 +100,37 @@ export default function Page({ user }) {
 
       {/* Depot & Roster Selection Bar */}
       <div className="card flex flex-wrap items-center gap-4 bg-slate-50/70 border-slate-200/80">
-        <div className="w-full sm:w-60">
-          <label htmlFor="store-select">Operating Depot Store</label>
-          <select
-            id="store-select"
-            value={store}
-            disabled={user.role === 'STORE'}
-            onChange={e => {
-              setStore(e.target.value);
-              setRoute('');
-              setChosen([]);
-            }}
-          >
-            {directory.stores.map(s => (
-              <option value={s.id} key={s.id}>
-                {s.city} Regional Depot
-              </option>
-            ))}
-          </select>
-        </div>
+        {user.role === 'STORE' ? (
+          <div className="w-full sm:w-64">
+            <span className="text-xs font-semibold uppercase tracking-wider text-slate-500 block">Assigned Operating Depot</span>
+            <div className="flex items-center gap-2 mt-1 px-3 py-2 bg-white rounded-lg border border-slate-200 shadow-2xs">
+              <span className="material-symbols-outlined text-[18px] text-blue-600">store</span>
+              <span className="text-xs font-bold text-slate-900">
+                {currentStore?.city || 'Regional'} Depot
+              </span>
+              <span className="text-[10px] uppercase font-semibold text-slate-400 ml-auto">Depot #{store}</span>
+            </div>
+          </div>
+        ) : (
+          <div className="w-full sm:w-60">
+            <label htmlFor="store-select">Operating Depot Store</label>
+            <select
+              id="store-select"
+              value={store}
+              onChange={e => {
+                setStore(e.target.value);
+                setRoute('');
+                setChosen([]);
+              }}
+            >
+              {directory.stores.map(s => (
+                <option value={s.id} key={s.id}>
+                  {s.city} Regional Depot
+                </option>
+              ))}
+            </select>
+          </div>
+        )}
 
         <div className="w-full sm:w-60">
           <label htmlFor="week-input">Roster Week Date</label>
@@ -121,10 +145,38 @@ export default function Page({ user }) {
 
       {/* Road Fleet KPI Strip */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-        <StatCard title="Active Trucks" value={`${activeTrucks.length} / ${resources.trucks.length}`} subtitle="Depot fleet capacity" icon="local_shipping" color="blue" />
-        <StatCard title="Active Drivers" value={`${activeDrivers.length} / ${resources.employees.filter(e => e.role === 'DRIVER').length}`} subtitle="Max 40h/week limit" icon="badge" color="teal" />
-        <StatCard title="Active Assistants" value={`${activeAssistants.length} / ${resources.employees.filter(e => e.role === 'ASSISTANT').length}`} subtitle="Max 60h/week limit" icon="person_add" color="amber" />
-        <StatCard title="Delivery Trips" value={currentTrips.length} subtitle="Planned & out on route" icon="alt_route" color="emerald" />
+        <StatCard
+          title="Active Trucks"
+          value={`${activeTrucks.length} / ${resources.trucks.length}`}
+          subtitle={trucksOnTrip ? `${trucksOnTrip} currently on route` : `${activeTrucks.length} available at depot`}
+          icon="local_shipping"
+          color="blue"
+        />
+        <StatCard
+          title="Active Drivers"
+          value={`${activeDrivers.length} / ${resources.employees.filter(e => e.role === 'DRIVER').length}`}
+          subtitle={activeDrivers.length ? `${activeDrivers.length} available · 40h cap` : 'No active drivers'}
+          icon="badge"
+          color="teal"
+        />
+        <StatCard
+          title="Active Assistants"
+          value={`${activeAssistants.length} / ${resources.employees.filter(e => e.role === 'ASSISTANT').length}`}
+          subtitle={activeAssistants.length ? `${activeAssistants.length} available · 60h cap` : 'No active assistants'}
+          icon="person_add"
+          color="amber"
+        />
+        <StatCard
+          title="Delivery Trips"
+          value={currentTrips.length}
+          subtitle={
+            outTripsCount || plannedTripsCount
+              ? `${outTripsCount} on route · ${plannedTripsCount} planned`
+              : `${completedTripsCount} completed trips`
+          }
+          icon="alt_route"
+          color="emerald"
+        />
       </div>
 
       <Banner type="info">
@@ -143,7 +195,8 @@ export default function Page({ user }) {
               id: t.id,
               plate: t.plate,
               type: t.type,
-              capacity: Number(t.capacity).toFixed(2),
+              capacity_cu: Number(t.capacity).toFixed(2),
+              fleet_status: t.live_status === 'ON_TRIP' ? 'OUT' : (t.active ? 'Available' : 'Unavailable'),
               active: t.active
             }))}
           />
@@ -159,7 +212,9 @@ export default function Page({ user }) {
               id: e.id,
               name: e.name,
               role: e.role,
-              hours: Number(e.hours || e.committed_hours || 0).toFixed(1),
+              committed_hours: Number(e.committed_hours || 0).toFixed(1),
+              remaining_hours: Number(e.remaining_hours != null ? e.remaining_hours : (e.role === 'DRIVER' ? 40 : 60)).toFixed(1),
+              weekly_limit: e.role === 'DRIVER' ? '40.0' : '60.0',
               active: e.active
             }))}
           />
@@ -387,7 +442,20 @@ export default function Page({ user }) {
           <span>Delivery Trips Registry</span>
         </h2>
 
-        <Table rows={currentTrips} />
+        <Table
+          rows={currentTrips.map(t => ({
+            trip_id: `#${t.id}`,
+            route: t.route,
+            truck_plate: t.plate,
+            driver: t.driver,
+            assistant: t.assistant,
+            planned_start: t.planned_start ? t.planned_start.replace('T', ' ').slice(0, 16) : '—',
+            planned_end: t.planned_end ? t.planned_end.replace('T', ' ').slice(0, 16) : '—',
+            status: t.status,
+            actual_minutes: t.actual_minutes != null ? `${t.actual_minutes} min` : '—',
+            alert: t.warning === 'ROUTE_OVERRUN' ? 'Overrun Warning' : 'Normal'
+          }))}
+        />
 
         {/* Dispatch or Cancel Trip */}
         {currentTrips.some(t => t.status === 'PLANNED') && (
@@ -401,7 +469,12 @@ export default function Page({ user }) {
                 {
                   name: 'id',
                   label: 'Planned Trip',
-                  options: options(currentTrips.filter(t => t.status === 'PLANNED'), 'route')
+                  options: currentTrips
+                    .filter(t => t.status === 'PLANNED')
+                    .map(t => ({
+                      value: t.id,
+                      label: `Trip #${t.id} · ${t.route} (${t.plate || 'Truck'}) · Planned: ${t.planned_start ? t.planned_start.replace('T', ' ').slice(0, 16) : '—'}`
+                    }))
                 },
                 {
                   name: 'action',
@@ -456,7 +529,7 @@ export default function Page({ user }) {
               .filter(t => t.status === 'OUT')
               .map(t => (
                 <option key={t.id} value={t.id}>
-                  Trip #{t.id} | {t.route} | Departed: {t.actual_start}
+                  Trip #{t.id} | {t.route} ({t.plate}) | Departed: {t.actual_start ? t.actual_start.replace('T', ' ').slice(0, 16) : '—'}
                 </option>
               ))}
           </select>
@@ -468,22 +541,33 @@ export default function Page({ user }) {
               Orders Dispatched on Trip ({tripOrders.length})
             </span>
             <div className="space-y-1.5 p-3 rounded-xl border border-slate-200 bg-white">
-              {tripOrders.map(x => (
-                <label key={x.order_id} className="flex items-center text-xs py-1 hover:bg-slate-50 rounded px-1.5 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={delivered.includes(x.order_id)}
-                    onChange={e =>
-                      setDelivered(old =>
-                        e.target.checked ? [...old, x.order_id] : old.filter(id => id !== x.order_id)
-                      )
-                    }
-                  />
-                  <span className="font-semibold text-slate-900">Order #{x.order_id} Delivered</span>
-                  <span className="mx-1 text-slate-400">·</span>
-                  <span className="text-slate-500">Uncheck to mark as FAILED (reverts to store)</span>
-                </label>
-              ))}
+              {tripOrders.map(x => {
+                const ord = orders.find(o => o.id === x.order_id);
+                return (
+                  <label key={x.order_id} className="flex items-center text-xs py-1 hover:bg-slate-50 rounded px-1.5 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={delivered.includes(x.order_id)}
+                      onChange={e =>
+                        setDelivered(old =>
+                          e.target.checked ? [...old, x.order_id] : old.filter(id => id !== x.order_id)
+                        )
+                      }
+                    />
+                    <span className="font-semibold text-slate-900">Order #{x.order_id} Delivered</span>
+                    {ord && (
+                      <>
+                        <span className="mx-1 text-slate-400">·</span>
+                        <span className="text-slate-600 font-medium">Due: {ord.delivery_date}</span>
+                        <span className="mx-1 text-slate-400">·</span>
+                        <span className="text-slate-500 truncate">{ord.address || ord.customer}</span>
+                      </>
+                    )}
+                    <span className="mx-1 text-slate-400">·</span>
+                    <span className="text-slate-400 text-[11px]">Uncheck to mark FAILED</span>
+                  </label>
+                );
+              })}
             </div>
 
             <Form

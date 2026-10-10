@@ -77,25 +77,39 @@ export default function Page({ user }) {
 
       {/* Rail KPI Metrics */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-        <StatCard title="Active Trains" value={trains.length} subtitle="Scheduled & running" icon="train" color="blue" />
+        <StatCard
+          title="Active Trains"
+          value={trains.length}
+          subtitle={trains.length ? `${trains.length} on timetable` : 'None scheduled'}
+          icon="train"
+          color="blue"
+        />
         <StatCard
           title="Scheduled Due"
           value={trains.filter(t => t.status === 'SCHEDULED').length}
-          subtitle="Ready for allocation"
+          subtitle={
+            trains.filter(t => t.status === 'SCHEDULED').length
+              ? `${trains.filter(t => t.status === 'SCHEDULED').length} awaiting departure`
+              : 'None pending departure'
+          }
           icon="event_upcoming"
           color="amber"
         />
         <StatCard
           title="On Mainline"
           value={trains.filter(t => t.status === 'IN_TRANSIT').length}
-          subtitle="Transiting Kadugannawa"
+          subtitle={
+            trains.filter(t => t.status === 'IN_TRANSIT').length
+              ? `${trains.filter(t => t.status === 'IN_TRANSIT').length} in transit to depots`
+              : 'No trains on mainline'
+          }
           icon="alt_route"
           color="teal"
         />
         <StatCard
           title="Manifest Items"
           value={manifest.length}
-          subtitle="Bin-packed cargo lots"
+          subtitle={manifest.length ? `${manifest.length} cargo lots` : 'No cargo allocated'}
           icon="inventory_2"
           color="emerald"
         />
@@ -116,8 +130,8 @@ export default function Page({ user }) {
             id: t.id,
             reference: t.reference,
             destination: t.city,
-            departure: t.departure_at,
-            arrival: t.arrival_at,
+            departure: t.departure_at ? t.departure_at.replace('T', ' ').slice(0, 16) : '—',
+            arrival: t.arrival_at ? t.arrival_at.replace('T', ' ').slice(0, 16) : '—',
             status: t.status,
             capacity: Number(t.capacity).toFixed(2),
             available: Number(t.available_capacity).toFixed(2)
@@ -209,7 +223,12 @@ export default function Page({ user }) {
                   {
                     name: 'train_trip_id',
                     label: 'Available Scheduled Train',
-                    options: options(trains.filter(t => t.status === 'SCHEDULED'), 'reference')
+                    options: trains
+                      .filter(t => t.status === 'SCHEDULED')
+                      .map(t => ({
+                        value: t.id,
+                        label: `${t.reference} · To: ${t.city} · Dept: ${t.departure_at ? t.departure_at.slice(0, 16).replace('T', ' ') : '—'} · Avail: ${Number(t.available_capacity).toFixed(2)} cu`
+                      }))
                   }
                 ]}
                 button="Allocate & Bin-Pack"
@@ -228,7 +247,12 @@ export default function Page({ user }) {
                   {
                     name: 'id',
                     label: 'Due Train for Mainline Departure',
-                    options: options(trains.filter(t => t.status === 'SCHEDULED'), 'reference')
+                    options: trains
+                      .filter(t => t.status === 'SCHEDULED')
+                      .map(t => ({
+                        value: t.id,
+                        label: `${t.reference} · To: ${t.city} · Dept: ${t.departure_at ? t.departure_at.slice(0, 16).replace('T', ' ') : '—'}`
+                      }))
                   }
                 ]}
                 button="Dispatch to Mainline"
@@ -246,7 +270,27 @@ export default function Page({ user }) {
           <span>Manifest Allocations & Store Receiving</span>
         </h2>
 
-        <Table rows={manifest} />
+        <Table
+          rows={manifest.map(m => ({
+            lot_id: `#${m.id}`,
+            train: m.reference,
+            train_status: m.train_status,
+            order_id: `#${m.order_id}`,
+            customer: m.customer,
+            product: m.product,
+            quantity: m.quantity,
+            received_qty: m.received_qty != null ? m.received_qty : 0,
+            status:
+              m.train_status === 'SCHEDULED'
+                ? 'SCHEDULED'
+                : Number(m.received_qty) >= Number(m.quantity)
+                ? 'COMPLETED'
+                : Number(m.received_qty) > 0
+                ? 'ALLOCATED'
+                : m.train_status,
+            arrival: m.arrival_at ? m.arrival_at.replace('T', ' ').slice(0, 16) : '—'
+          }))}
+        />
 
         {['ADMIN', 'STORE'].includes(user.role) && (
           <div className="card space-y-3 bg-gradient-to-b from-white to-slate-50/40">
@@ -263,7 +307,7 @@ export default function Page({ user }) {
                     .filter(a => a.train_status !== 'SCHEDULED')
                     .map(a => ({
                       value: a.id,
-                      label: `#${a.id} | ${a.product} | ordered: ${a.quantity} | received: ${a.received_qty}`
+                      label: `Lot #${a.id} · ${a.product} (Order #${a.order_id}) · Train ${a.reference} · Ordered: ${a.quantity} · Received: ${a.received_qty || 0}`
                     }))
                 },
                 {

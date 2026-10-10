@@ -57,14 +57,16 @@ function App() {
 
         {user ? (
           <div className="flex items-center gap-3">
-            {/* Live Status Beacon */}
-            <div className="hidden sm:flex items-center gap-2 px-2.5 py-1 rounded-full bg-slate-900 border border-slate-800 text-xs">
-              <span className="relative flex h-2 w-2">
-                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
-                <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500" />
-              </span>
-              <span className="text-[11px] text-slate-300 font-medium">Rail & Road Live</span>
-            </div>
+            {/* Live Status Beacon (Internal Fleet Monitoring) */}
+            {user.role !== 'CUSTOMER' && (
+              <div className="hidden sm:flex items-center gap-2 px-2.5 py-1 rounded-full bg-slate-900 border border-slate-800 text-xs">
+                <span className="relative flex h-2 w-2">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
+                  <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500" />
+                </span>
+                <span className="text-[11px] text-slate-300 font-medium">Rail & Road Live</span>
+              </div>
+            )}
 
             {/* User Profile Pill */}
             <div className="flex items-center gap-2 pl-2 border-l border-slate-800">
