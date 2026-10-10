@@ -12,6 +12,9 @@ export default function Page({user}){
   useEffect(()=>{load();},[]);
   const save=(url,method='POST')=>async body=>{const result=await api(url,{method,body});await load();return result;};
   return <><h1>Stores and routes</h1><p role="alert">{error}</p><Table rows={data.stores}/>
+    {user.role==='ADMIN'&&<><h2>Add store</h2>
+      <Form button="Add store" fields={[{name:'city',label:'City'},{name:'location',label:'Location'}]}
+        onSubmit={save('/stores')}/></>}
     <h2>Delivery coverage</h2><Table rows={data.routes}/><h2>Add route</h2>
     <Form fields={[{name:'store_id',options:options(data.stores,'city')},{name:'name'},
       {name:'coverage_area',label:'Unique coverage area code or name'},{name:'max_minutes',type:'number',min:1,max:480}]}

@@ -38,6 +38,13 @@ r.post('/staff-users', roles('ADMIN'), async (req,res) => {
       bcrypt.hashSync(password,12),b.role]));
   res.status(201).json({message:'Staff account created'});
 });
+r.post('/stores', roles('ADMIN'), async(req,res)=>{
+  const b=req.body;
+  await transaction(req.user.id,c=>c.execute(
+    'INSERT INTO stores(city,location) VALUES(?,?)',
+    [text(b.city,'City',60),text(b.location,'Location',255)]));
+  res.status(201).json({message:'Store created'});
+});
 r.put('/stores/:id/manager', roles('ADMIN'), async(req,res)=>{
   const manager=int(req.body.manager_id);
   await transaction(req.user.id,async c=>{
