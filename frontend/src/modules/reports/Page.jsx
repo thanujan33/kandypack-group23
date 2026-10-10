@@ -190,7 +190,7 @@ export default function Page({ user }) {
           <h1 className="text-2xl font-bold tracking-tight text-slate-900">
             {customer ? 'Order History & Delivery Statements' : 'Analytics, Reporting & Audit Logs'}
           </h1>
-          <p className="text-xs text-slate-500 mt-0.5">
+          <p className="text-xs text-muted mt-0.5">
             {customer
               ? 'Historical archive of your past consignments, manifest items, and delivery records.'
               : 'Database views, quarterly sales aggregation, fleet utilization, and immutable audit logs.'}
@@ -303,7 +303,7 @@ export default function Page({ user }) {
             <h2 className="text-sm font-bold text-slate-900 mt-0 uppercase tracking-wider">
               {metric.replaceAll('_', ' ')} Breakdown
             </h2>
-            <span className="text-xs text-slate-400">Peak Value: {maximum.toLocaleString()}</span>
+            <span className="text-xs text-muted">Peak Value: {maximum.toLocaleString()}</span>
           </div>
 
           <div className="space-y-3 pt-1">
@@ -344,7 +344,7 @@ export default function Page({ user }) {
         <Table rows={getFormattedRows()} pageSize={15} />
 
         {report === 'trucks' && (
-          <p className="text-xs text-slate-500 pt-1">
+          <p className="text-xs text-muted pt-1">
             Truck utilization assumes 8 available operating hours per calendar day. Trips crossing month boundaries contribute split hours accordingly.
           </p>
         )}

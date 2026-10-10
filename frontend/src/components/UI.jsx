@@ -52,9 +52,9 @@ export function StatCard({ title, value, subtitle, icon, color = 'blue' }) {
   return (
     <div className="card flex items-start justify-between gap-3">
       <div className="space-y-1">
-        <p className="text-xs uppercase font-semibold tracking-wider text-slate-500">{title}</p>
+        <p className="text-xs uppercase font-semibold tracking-wider text-muted">{title}</p>
         <p className="text-2xl font-bold tracking-tight text-slate-900 tabular-nums">{value}</p>
-        {subtitle && <p className="text-xs text-slate-500">{subtitle}</p>}
+        {subtitle && <p className="text-xs text-muted">{subtitle}</p>}
       </div>
       {icon && (
         <div className={`p-2 rounded-lg border ${iconColors[color] || iconColors.blue}`}>
@@ -118,10 +118,10 @@ export function Stepper({ currentStatus }) {
                   <div
                     className={`w-9 h-9 rounded-full flex items-center justify-center text-sm font-semibold mb-2 transition-all shadow-xs ${
                       isPast
-                        ? 'bg-emerald-600 text-white'
+                        ? 'bg-emerald-700 text-white'
                         : isCurrent
                         ? 'bg-blue-600 text-white ring-4 ring-blue-100 font-bold'
-                        : 'bg-slate-100 text-slate-400 border border-slate-200'
+                        : 'bg-slate-100 text-muted border border-slate-200'
                     }`}
                   >
                     {isPast ? (
@@ -131,11 +131,11 @@ export function Stepper({ currentStatus }) {
                     )}
                   </div>
                   <span className={`text-xs font-medium leading-tight ${
-                    isCurrent ? 'text-blue-900 font-bold' : isPast ? 'text-slate-800' : 'text-slate-400'
+                    isCurrent ? 'text-blue-900 font-bold' : isPast ? 'text-slate-800' : 'text-muted'
                   }`}>
                     {step.label}
                   </span>
-                  <span className="text-[10px] text-slate-400 uppercase mt-0.5">
+                  <span className="text-[10px] text-muted uppercase mt-0.5">
                     {isCurrent ? 'Active Now' : isPast ? 'Completed' : 'Upcoming'}
                   </span>
                 </div>
@@ -154,8 +154,8 @@ export function Table({ rows, pageSize = 10 }) {
   if (!rows?.length) {
     return (
       <div className="rounded-xl border border-dashed border-slate-300 p-8 text-center bg-slate-50/50">
-        <span className="material-symbols-outlined text-[32px] text-slate-400">inbox</span>
-        <p className="mt-1 text-sm text-slate-500 font-medium">No records found.</p>
+        <span className="material-symbols-outlined text-[32px] text-muted">inbox</span>
+        <p className="mt-1 text-sm text-muted font-medium">No records found.</p>
       </div>
     );
   }
@@ -197,7 +197,7 @@ export function Table({ rows, pageSize = 10 }) {
                   if (typeof val === 'boolean') {
                     return (
                       <td key={k}>
-                        <span className={`inline-flex px-2 py-0.5 text-xs rounded-full font-medium ${val ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-100 text-slate-500'}`}>
+                        <span className={`inline-flex px-2 py-0.5 text-xs rounded-full font-medium ${val ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-100 text-muted'}`}>
                           {val ? 'Yes' : 'No'}
                         </span>
                       </td>
@@ -240,7 +240,7 @@ export function Table({ rows, pageSize = 10 }) {
           <div className="flex items-center gap-1.5">
             <button
               type="button"
-              className="px-2.5 py-1 text-xs bg-white text-slate-700 border border-slate-300 hover:bg-slate-50 disabled:opacity-40"
+              className="px-2.5 py-1 text-xs bg-white text-slate-700 border border-slate-300 hover:bg-slate-50"
               disabled={page === 0}
               onClick={() => setPage(p => Math.max(0, p - 1))}
             >
@@ -249,7 +249,7 @@ export function Table({ rows, pageSize = 10 }) {
             <span className="px-2">Page {page + 1} of {totalPages}</span>
             <button
               type="button"
-              className="px-2.5 py-1 text-xs bg-white text-slate-700 border border-slate-300 hover:bg-slate-50 disabled:opacity-40"
+              className="px-2.5 py-1 text-xs bg-white text-slate-700 border border-slate-300 hover:bg-slate-50"
               disabled={page >= totalPages - 1}
               onClick={() => setPage(p => Math.min(totalPages - 1, p + 1))}
             >
@@ -262,7 +262,7 @@ export function Table({ rows, pageSize = 10 }) {
   );
 }
 
-export function Form({ fields, onSubmit, button = 'Save' }) {
+export function Form({ fields, onSubmit, button = 'Save', inputClassName = '' }) {
   const [feedback, setFeedback] = useState({ text: '', isError: false });
   const [busy, setBusy] = useState(false);
 
@@ -299,12 +299,14 @@ export function Form({ fields, onSubmit, button = 'Save' }) {
           <div key={f.name} className={f.colSpan ? `md:col-span-${f.colSpan}` : ''}>
             <label htmlFor={f.name}>
               {f.label || f.name.replaceAll('_', ' ')}
-              {f.optional && <span className="ml-1 text-[10px] text-slate-400 font-normal lowercase">(optional)</span>}
+              {f.optional && <span className="ml-1 text-[10px] text-muted font-normal lowercase">(optional)</span>}
             </label>
             {f.type === 'password' ? (
               <PasswordInput
                 id={f.name}
                 name={f.name}
+                label={null}
+                className={inputClassName}
                 defaultValue={f.value}
                 required={!f.optional}
                 min={f.min}
@@ -324,6 +326,7 @@ export function Form({ fields, onSubmit, button = 'Save' }) {
             ) : (
               <input
                 id={f.name}
+                className={inputClassName}
                 name={f.name}
                 type={f.type || 'text'}
                 defaultValue={f.value}

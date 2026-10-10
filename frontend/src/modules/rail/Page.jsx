@@ -54,7 +54,7 @@ export default function Page({ user }) {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-3 border-b border-slate-200/80 gap-3">
         <div>
           <h1 className="text-2xl font-bold tracking-tight text-slate-900">Rail Freight & Capacity Planner</h1>
-          <p className="text-xs text-slate-500 mt-0.5">
+          <p className="text-xs text-muted mt-0.5">
             Intermodal Line-Haul: Kandy Central Yard to regional destination depots across Sri Lanka.
           </p>
         </div>
@@ -173,7 +173,7 @@ export default function Page({ user }) {
             />
 
             <div className="pt-2">
-              <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider block mb-1">Editable Trips:</span>
+              <span className="text-xs font-semibold text-muted uppercase tracking-wider block mb-1">Editable Trips:</span>
               <div className="flex flex-wrap gap-1.5">
                 <button
                   type="button"
@@ -208,7 +208,7 @@ export default function Page({ user }) {
                 <span className="material-symbols-outlined text-blue-700 text-[18px]">rule</span>
                 <span>Allocate Pending Order to Train</span>
               </h2>
-              <p className="text-xs text-slate-500">
+              <p className="text-xs text-muted">
                 Executes greedy bin-packing cursor loop in MySQL (<code className="font-mono text-[11px] bg-slate-100 px-1 py-0.5 rounded">sp_allocate_order</code>), splitting overflow across subsequent trains if needed.
               </p>
               <Form

@@ -46,7 +46,7 @@ export default function Page({ user }) {
           <h1 className="text-2xl font-bold tracking-tight text-slate-900">
             {user.role === 'ADMIN' ? 'Stores, Coverage & User Administration' : 'Depots & Delivery Coverage Directory'}
           </h1>
-          <p className="text-xs text-slate-500 mt-0.5">
+          <p className="text-xs text-muted mt-0.5">
             {user.role === 'ADMIN'
               ? 'Maintain regional depot stores, local coverage delivery routes, and role-based staff credentials.'
               : 'Review regional depot stores and manage local delivery coverage routes and turnaround times.'}

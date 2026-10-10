@@ -77,7 +77,7 @@ export default function Page({ user }) {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-3 border-b border-slate-200/80 gap-3">
         <div>
           <h1 className="text-2xl font-bold tracking-tight text-slate-900">Road Deliveries & Fleet Rostering</h1>
-          <p className="text-xs text-slate-500 mt-0.5">
+          <p className="text-xs text-muted mt-0.5">
             Regional Hub Final-Mile: Plan truck dispatches, enforce driver rest hours, and record delivery outcomes.
           </p>
         </div>
@@ -342,7 +342,7 @@ export default function Page({ user }) {
             <span className="material-symbols-outlined text-blue-700 text-[20px]">route</span>
             <span>Plan & Reserve Final-Mile Road Delivery</span>
           </h2>
-          <p className="text-xs text-slate-500 mt-0.5">
+          <p className="text-xs text-muted mt-0.5">
             Bundle cross-docked orders at store, allocate compliant truck and crew, and reserve roster slots.
           </p>
         </div>
@@ -383,17 +383,17 @@ export default function Page({ user }) {
                     }
                   />
                   <span className="font-semibold text-slate-900">Order #{o.id}</span>
-                  <span className="mx-1 text-slate-400">·</span>
+                  <span className="mx-1 text-muted">·</span>
                   <span className="text-slate-600">Due: {o.delivery_date}</span>
-                  <span className="mx-1 text-slate-400">·</span>
+                  <span className="mx-1 text-muted">·</span>
                   <span className="text-blue-700 font-medium">{o.total_space} cu space</span>
-                  <span className="mx-1 text-slate-400">·</span>
-                  <span className="text-slate-500 truncate">{o.address}</span>
+                  <span className="mx-1 text-muted">·</span>
+                  <span className="text-muted truncate">{o.address}</span>
                 </label>
               ))}
             </div>
           ) : (
-            <div className="p-4 rounded-xl border border-dashed border-slate-300 text-center text-xs text-slate-500 bg-slate-50/50">
+            <div className="p-4 rounded-xl border border-dashed border-slate-300 text-center text-xs text-muted bg-slate-50/50">
               No fully received orders available for dispatch on this route right now.
             </div>
           )}
@@ -499,7 +499,7 @@ export default function Page({ user }) {
             <span className="material-symbols-outlined text-blue-700 text-[20px]">assignment_turned_in</span>
             <span>Log Actual Trip Return & Delivery Outcomes</span>
           </h2>
-          <p className="text-xs text-slate-500 mt-0.5">
+          <p className="text-xs text-muted mt-0.5">
             Confirm deliveries for orders fulfilled. Unchecked orders return to AT_STORE status for rescheduling.
           </p>
         </div>
@@ -557,14 +557,14 @@ export default function Page({ user }) {
                     <span className="font-semibold text-slate-900">Order #{x.order_id} Delivered</span>
                     {ord && (
                       <>
-                        <span className="mx-1 text-slate-400">·</span>
+                        <span className="mx-1 text-muted">·</span>
                         <span className="text-slate-600 font-medium">Due: {ord.delivery_date}</span>
-                        <span className="mx-1 text-slate-400">·</span>
+                        <span className="mx-1 text-muted">·</span>
                         <span className="text-slate-500 truncate">{ord.address || ord.customer}</span>
                       </>
                     )}
-                    <span className="mx-1 text-slate-400">·</span>
-                    <span className="text-slate-400 text-[11px]">Uncheck to mark FAILED</span>
+                    <span className="mx-1 text-muted">·</span>
+                    <span className="text-muted text-[11px]">Uncheck to mark as FAILED (reverts to store)</span>
                   </label>
                 );
               })}

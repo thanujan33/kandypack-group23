@@ -79,7 +79,7 @@ export default function Page({ user }) {
               ? 'Depot Consignment Registry'
               : 'Shipments & Order Management'}
           </h1>
-          <p className="text-xs text-slate-500 mt-0.5">
+          <p className="text-xs text-muted mt-0.5">
             {user.role === 'CUSTOMER'
               ? 'Browse catalog products, place advance delivery orders, and track your active consignments.'
               : user.role === 'STORE'
@@ -152,7 +152,7 @@ export default function Page({ user }) {
         {errors.products && <p role="alert" className="text-xs text-rose-600 font-medium">Unable to load products: {errors.products}</p>}
 
         {loading ? (
-          <p className="text-xs text-slate-500">Loading products…</p>
+          <p className="text-xs text-muted">Loading products…</p>
         ) : !errors.products && (
           products.length === 0 ? (
             <Banner type="warning">No products are currently available in the catalog.</Banner>
@@ -170,7 +170,7 @@ export default function Page({ user }) {
               })}
             />
           ) : (
-            <p className="text-xs text-slate-500">No products match &ldquo;{search}&rdquo;.</p>
+            <p className="text-xs text-muted">No products match &ldquo;{search}&rdquo;.</p>
           )
         )}
 
@@ -244,7 +244,7 @@ export default function Page({ user }) {
               <span className="material-symbols-outlined text-blue-700 text-[20px]">shopping_cart</span>
               <span>Place Advance Consignment Order</span>
             </h2>
-            <p className="text-xs text-slate-500 mt-0.5">
+            <p className="text-xs text-muted mt-0.5">
               Consignments originate at the Kandy Central Factory. Mandatory minimum lead time is 7 calendar days.
             </p>
           </div>
@@ -341,9 +341,9 @@ export default function Page({ user }) {
           </h2>
           <div className="flex flex-wrap items-center gap-2">
             <div className="flex items-center gap-1.5 text-xs">
-              <span className="text-slate-500 font-medium">From:</span>
+              <span className="text-muted font-medium">From:</span>
               <input type="date" value={from} onChange={e => setFrom(e.target.value)} className="w-auto py-1 text-xs" />
-              <span className="text-slate-500 font-medium">To:</span>
+              <span className="text-muted font-medium">To:</span>
               <input type="date" value={to} onChange={e => setTo(e.target.value)} className="w-auto py-1 text-xs" />
             </div>
             <button type="button" onClick={load} disabled={loading} className="text-xs py-1.5 px-3">
@@ -355,7 +355,7 @@ export default function Page({ user }) {
         {errors.history && <p role="alert" className="text-xs text-rose-600 font-medium">Unable to load orders: {errors.history}</p>}
 
         {loading ? (
-          <p className="text-xs text-slate-500">Loading order registry…</p>
+          <p className="text-xs text-muted">Loading order registry…</p>
         ) : (
           <Table
             rows={orders.map(o => {
@@ -436,19 +436,19 @@ export default function Page({ user }) {
             {/* Consignment Overview Strip */}
             <div className="p-4 rounded-xl bg-slate-50 border border-slate-200/80 grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
               <div>
-                <span className="text-slate-400 font-medium uppercase tracking-wider block">Consignment ID</span>
-                <span className="font-bold text-slate-900 font-mono text-sm mt-0.5 block">#{detail.order.id}</span>
+                <span className="text-muted font-medium uppercase tracking-wider block">Consignment ID</span>
+                <span className="font-bold text-slate-900 font-mono text-sm mt-0.5 block">#KP-{detail.order.id}</span>
               </div>
               <div>
-                <span className="text-slate-400 font-medium uppercase tracking-wider block">Target Delivery</span>
+                <span className="text-muted font-medium uppercase tracking-wider block">Target Delivery</span>
                 <span className="font-semibold text-slate-900 mt-0.5 block">{detail.order.delivery_date}</span>
               </div>
               <div>
-                <span className="text-slate-400 font-medium uppercase tracking-wider block">Destination Corridor</span>
+                <span className="text-muted font-medium uppercase tracking-wider block">Destination Corridor</span>
                 <span className="font-semibold text-slate-900 mt-0.5 block">{detail.order.city} · {detail.order.route}</span>
               </div>
               <div>
-                <span className="text-slate-400 font-medium uppercase tracking-wider block">Consignment Total</span>
+                <span className="text-muted font-medium uppercase tracking-wider block">Consignment Total</span>
                 <span className="font-bold text-slate-900 tabular-nums text-sm mt-0.5 block">
                   LKR {detailTotal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                 </span>

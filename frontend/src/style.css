@@ -1,27 +1,50 @@
 @import "tailwindcss";
 
+/* Shared foregrounds for the existing white, blue and slate surfaces. */
+@theme {
+  --color-ink: #0b1c30;
+  --color-muted: #475569;
+  --color-brand: #004ac6;
+  --color-brand-hover: #003ea8;
+  --color-canvas: #f8fafc;
+  --color-control-border: #64748b;
+}
+
 @layer base {
   body {
     font-family: 'Geist', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-    @apply bg-[#F8FAFC] text-[#0B1C30] min-h-screen;
+    @apply bg-canvas text-ink min-h-screen;
   }
   h1 {
-    @apply text-2xl md:text-3xl font-bold text-[#0B1C30] tracking-tight mb-2;
+    @apply text-2xl md:text-3xl font-bold text-ink tracking-tight mb-2;
   }
   h2 {
-    @apply text-lg md:text-xl font-semibold text-[#0B1C30] tracking-tight mt-6 mb-3 flex items-center gap-2;
+    @apply text-lg md:text-xl font-semibold text-ink tracking-tight mt-6 mb-3 flex items-center gap-2;
   }
   h3 {
-    @apply text-base font-semibold text-[#0B1C30] mb-2;
+    @apply text-base font-semibold text-ink mb-2;
   }
   button {
-    @apply inline-flex items-center justify-center font-medium rounded-lg bg-[#004AC6] hover:bg-[#003EA8] px-4 py-2 text-white text-sm cursor-pointer shadow-xs transition-colors duration-150 disabled:opacity-50 disabled:cursor-not-allowed;
+    @apply inline-flex items-center justify-center font-medium rounded-lg bg-brand hover:bg-brand-hover px-4 py-2 text-white text-sm cursor-pointer shadow-xs transition-colors duration-150 disabled:cursor-not-allowed;
   }
   label {
     @apply block text-xs font-semibold uppercase tracking-wider text-slate-600 mb-1;
   }
   input, select, textarea {
-    @apply block w-full border border-slate-300 rounded-lg bg-white px-3 py-2 text-sm text-[#0B1C30] placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600 transition-all mt-1;
+    @apply block w-full border border-control-border rounded-lg bg-white px-3 py-2 text-sm text-ink placeholder:text-muted placeholder:opacity-100 focus:ring-2 focus:ring-blue-500/20 focus:border-brand transition-all mt-1;
+  }
+  option {
+    @apply bg-white text-ink;
+  }
+  option:disabled {
+    @apply text-muted;
+  }
+  :where(button, a, input, select, textarea, summary):focus-visible {
+    outline: 2px solid var(--color-brand);
+    outline-offset: 2px;
+  }
+  header :where(button, a):focus-visible {
+    outline-color: white;
   }
   input[type=checkbox] {
     @apply inline w-auto mr-2 accent-blue-600;
@@ -49,6 +72,18 @@
     font-variant-numeric: tabular-nums;
     font-family: 'JetBrains Mono', monospace;
   }
+}
+
+/* Keep disabled text legible, including controls disabled by a fieldset.
+   State colours intentionally take precedence over per-button utilities. */
+:where(button, input, select, textarea):disabled {
+  color: var(--color-muted);
+  -webkit-text-fill-color: var(--color-muted);
+  background-color: #e2e8f0;
+  border-color: var(--color-control-border);
+  opacity: 1;
+  cursor: not-allowed;
+  box-shadow: none;
 }
 
 @media print {
