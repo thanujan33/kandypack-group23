@@ -263,5 +263,46 @@ Step 7 creates the academic database deliverables and formal architectural speci
 
 ---
 
+### Entry 008 — Step 8 Execution: Release Preparation, Demo Walkthrough, and Viva Defense Documentation
+- **Date & Time:** 2026-10-10 18:05 IST
+- **Target Step:** Step 8 (Release & Demo Readiness)
+- **Author/Agent:** Antigravity AI Assistant
+
+#### Context & Rationale
+Step 8 is the final phase of the project playbook. It validates the complete solution for production deployment, presentation, and academic defense:
+1. Full test suite verification across all unit, integration, RBAC, and lifecycle tests.
+2. Production container verification (`docker compose --profile full build`).
+3. Authoring of a step-by-step academic demonstration walkthrough script (`docs/demo-script.md`) for 4 key user personas (Customer, Factory Manager, Store Manager, System Administrator).
+4. Authoring of the Database Viva / Oral Examination technical defense guide covering query optimization, BCNF normalization, concurrency control (`app_lock`), and audit integrity.
+5. Preparing release tags and PR guidance for repository merge.
+
+#### Changes Made
+1. **Academic Demo Script & Oral Exam Defense Guide Created (`docs/demo-script.md`):**
+   - Scene-by-scene presentation roadmap covering 5 act phases:
+     - Act 1: Customer Order Placement & Real-time Validation (Capacity constraints & point-in-time pricing snapshot).
+     - Act 2: Order Cancellation & Immediate Wagon Capacity Release (Rollback & inventory restoration).
+     - Act 3: Factory Rail Manifest Generation & Greedy Bin-Packing Algorithm (`sp_allocate_rail_capacity`).
+     - Act 4: Road Final-Mile Delivery, Failed Delivery Retry Loop, and Auto-Completion.
+     - Act 5: Executive Analytics Dashboard (Top products, delivery times, store distribution).
+   - Persona-based switch matrix detailing credentials and specific responsibilities.
+   - Comprehensive Oral Defense Q&A covering the top 7 technical viva questions:
+     - Concurrency & Deadlock Prevention (`app_lock` vs table locks).
+     - Normalization & Snapshot Strategy (1NF-BCNF vs `order_items` immutable fields).
+     - Trigger Invariants & Security (`audit_log` append-only enforcement).
+     - Cursor Performance in Stored Procedures (`sp_allocate_rail_capacity` linear scan).
+     - State Machine Lifecycle Validation (Guarded transitions via check constraints).
+     - Role-Based Access Control Isolation (`kp_app` vs `kp_read`).
+     - Disaster Recovery & Backup Integrity Verification (Row and routine parity checks).
+2. **Containerized Build Verification:**
+   - Ran `docker compose --profile full build` to confirm multi-stage container images build cleanly for full offline deployment.
+
+#### Verification & Test Results
+- **Backend Lint & Syntax:** `npm run check` passed cleanly (code 0).
+- **Backend Test Suite:** `npm test` passed 26/26 tests across all test suites (`api.test.js`, `lifecycle.test.js`, `unit.test.js`) in 20.1s.
+- **Frontend Production Build:** `npm run build` compiled 36 modules cleanly in 1.92s.
+- **Git State:** All documentation and code changes tracked on branch `demo-dev`.
+
+---
+
 
 
