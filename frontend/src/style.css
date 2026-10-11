@@ -1,3 +1,4 @@
+@import "tailwindcss";
 
 /* Shared foregrounds for the existing white, blue and slate surfaces. */
 @theme {
