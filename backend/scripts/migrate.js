@@ -12,9 +12,12 @@ try {
   for (const name of (await readdir(dir)).filter(n=>/\.(sql|js)$/.test(n)).sort()) {
     const sql=await readFile(new URL(name,dir),'utf8');
     const hash=createHash('sha256').update(sql).digest('hex');
+    const lfHash=createHash('sha256').update(sql.replace(/\r\n/g,'\n')).digest('hex');
+    const crlfHash=createHash('sha256').update(sql.replace(/\r?\n/g,'\r\n')).digest('hex');
     const [[old]]=await c.query('SELECT checksum FROM schema_migrations WHERE name=?',[name]);
     if (old) {
-      if (old.checksum!==hash) throw new Error(`Applied migration changed: ${name}`);
+      if (old.checksum!==hash && old.checksum!==lfHash && old.checksum!==crlfHash)
+        throw new Error(`Applied migration changed: ${name}`);
       continue;
     }
     if(name.endsWith('.js')) {

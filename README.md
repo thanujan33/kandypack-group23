@@ -1,217 +1,161 @@
 # KandyPack — Group 23
 
-Semester 3 database systems project.
+Semester 3 Database Systems Project.
 
-## Project goal
-Build a product-order distribution system using rail transport
-from the Kandy factory to regional stores, followed by road delivery.
+## Project Overview
 
-## Planned technologies
-- React and Tailwind CSS
-- Node.js and Express
-- MySQL
-- Docker Compose
+**KandyPack** is a full-stack product-order distribution management system for a factory based in Kandy, Sri Lanka. It models a two-leg supply chain:
 
-## Responsibilities
-- Developer 1: Platform, accounts, stores and routes
-- Developer 2: Products and orders
-- Developer 3: Rail allocation and receiving
-- Developer 4: Road deliveries and staff rosters
-- Developer 5: Reports, audit and automated verification
+1. **Rail Leg:** Goods are loaded from the Kandy factory onto scheduled train trips and dispatched to regional store depots.
+2. **Road Leg:** Regional store depots receive the goods, then plan and dispatch last-mile delivery truck trips (with assigned drivers and assistants) to customers.
 
-## Development approach
-The team uses the supplied KandyPack development guides and reference
-code as a starting point. Adaptations, checks and fixes will be
-documented through commits and verification notes.
+---
 
-## Current progress
+## Architecture & Technology Stack
 
-The Dev1 foundation includes:
-- MySQL Docker configuration.
-- Core tables and migration tracking.
-- Restricted application database account.
-- Authentication API with revocable sessions.
-- React login/registration forms and shared application layout.
-- Directory management API and page.
-- JavaScript syntax checks and frontend build command.
+- **Frontend:** React 19 SPA, Vite 7, Tailwind CSS 4
+- **Backend:** Node.js 24 (ES Modules), Express 5, `mysql2/promise`
+- **Database:** MySQL 8.4 Community Server (running in Docker container, port `3307`)
+- **Security & RBAC:** Role-Based Access Control (`ADMIN`, `FACTORY`, `STORE`, `CUSTOMER`), bcrypt password hashing (cost factor 12), rolling JWT session management, and restricted MySQL user privileges (`kp_app`).
+- **Audit Logging:** Database triggers automatically record mutating actions into `audit_log` with user actor tracking.
 
-Verified: database setup, application-account grants, API health,
-registration/login, protected access, logout revocation, browser
-login/logout, and syntax/build checks.
+---
 
-Directory management flows still need further verification.
-Other developers' feature modules, demo fixtures and automated
-integration tests are not included yet.
+## Module Responsibilities
 
-## Local setup — Dev1 foundation
+| Role / Module | Developer | Domain & Responsibilities |
+| :--- | :--- | :--- |
+| **Dev 1 — Platform** | Developer 1 | System authentication, users, stores, delivery routes, and directory APIs |
+| **Dev 2 — Orders** | Developer 2 | Product catalog management, customer order placement (`sp_place_order`), snapshot pricing |
+| **Dev 3 — Rail** | Developer 3 | Train scheduling, order capacity allocation (`sp_allocate_order`), train dispatch, depot receiving |
+| **Dev 4 — Road** | Developer 4 | Store fleet/staff management, delivery trip scheduling (`sp_schedule_delivery`), dispatch, return logging |
+| **Dev 5 — Reports** | Developer 5 | Sales analytics, roster hour tracking, truck utilization, audit logs, and automated integration tests |
 
-### Requirements
+---
 
-- Git
-- Node.js 24 and npm
-- Docker Desktop running with its Linux engine
-- VS Code or another editor
+## Quickstart Setup Guide
 
-The commands below use PowerShell from the project root.
+### Prerequisites
 
-Each developer uses their own local MySQL database.
-Git shares source files and migrations, not database contents.
+- **Git**
+- **Node.js 24** and **npm** (`node -v` should report `>=24 <25`)
+- **Docker Desktop** (running with its Linux engine)
+- PowerShell (Windows) or standard terminal
 
-### 1. Install dependencies
+All commands below should be executed from the **repository root directory**.
+
+---
+
+### Step 1: Clone & Install Dependencies
 
 ```powershell
 npm ci
 ```
 
-### 2. Create local settings
+---
 
-For a fresh setup, copy the example files:
+### Step 2: Configure Environment Settings
+
+If setting up for the first time, copy the template `.env` files:
 
 ```powershell
 Copy-Item .env.example .env
 Copy-Item backend/.env.example backend/.env
 ```
 
-Do not overwrite existing configured .env files.
+Ensure the configuration variables in `backend/.env` match your local environment:
+- `MYSQL_ROOT_PASSWORD` in root `.env` must match `DB_ADMIN_PASSWORD` in `backend/.env`.
+- `DB_PORT=3307` and `DB_HOST=127.0.0.1`.
+- `DEMO_PASSWORD` must be at least 12 characters (used for test and seed accounts).
+- `JWT_SECRET` must be a secure random 64-character hex string.
 
-Before starting MySQL for the first time:
-- Set MYSQL_ROOT_PASSWORD in the root .env.
-- Put the same password in DB_ADMIN_PASSWORD in backend/.env.
-- Set a different DB_PASSWORD of at least 12 characters for kp_app.
-- Set DEMO_PASSWORD to a separate password of at least 12 characters.
-- Keep SEED_DEMO=NO.
-- Keep the supplied database name, username, host and port.
+---
 
-Generate a JWT secret:
+### Step 3: Start the MySQL Database
 
-```powershell
-node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
-```
-
-Paste the output into JWT_SECRET in backend/.env.
-
-Keep actual passwords and secrets in local .env files only.
-The committed .env.example files must contain placeholders.
-
-Changing MYSQL_ROOT_PASSWORD in .env after the database has been
-initialized does not change the existing MySQL account password.
-
-### 3. Start and prepare MySQL
+Start the MySQL container in the background:
 
 ```powershell
 docker compose up -d db
+```
+
+Verify that the database is running and healthy:
+
+```powershell
 docker compose ps
 ```
 
-Wait until the database status is healthy, then run:
+---
+
+### Step 4: Run Migrations & Provision Users
+
+Run the database migrations and provision the restricted application database user (`kp_app`):
 
 ```powershell
 npm run migrate
 npm run provision
 ```
 
-After receiving new migrations, run both commands again.
-Do not edit migrations that have already been merged and applied.
+---
 
-### 4. Start the application
+### Step 5: Create Local Administrator Account
 
-In one terminal:
-
-```powershell
-npm run api
-```
-
-In a second terminal:
+Initialize a developer administrator account in your local database:
 
 ```powershell
-npm run web
+node backend/scripts/create-dev-admin.js
 ```
 
-Leave both terminals running.
+This creates an administrator account:
+- **Email:** `dev1-admin@kandypack.test`
+- **Password:** The `DEMO_PASSWORD` configured in `backend/.env` (default: `abcdef123456`)
 
-Open http://localhost:5173.
+---
 
-The API health check is http://localhost:3000/api/health.
-It should return {"status":"ok"}.
+### Step 6: Verify System Health & Tests
 
-### 5. Try an account
-
-Use Create customer account to register a synthetic test customer.
-Passwords require at least 12 characters.
-
-Registration creates CUSTOMER accounts only.
-Then return to the sign-in form and log in.
-
-Existing accounts on another teammate's laptop will not exist
-automatically in your local database.
-
-At this stage, customers see a message saying feature modules
-will appear later. This is expected until the Orders module arrives.
-
-Staff demo accounts and full demonstration data will be added
-with Developer 5's seed script after all required modules are merged.
-
-### 6. Run available checks
+Run syntax checks, bundle builds, and the automated integration test suite:
 
 ```powershell
 npm run check
+npm test
 ```
 
-This checks backend JavaScript syntax and builds the frontend.
-It does not run the full database/API test suite.
+All 14 integration test suites should pass, covering authentication, order placement, rail allocation, roster limits, and audit triggers.
 
-Do not run npm run seed or npm test yet; their required files
-and feature modules are not included in the foundation.
+---
 
-### Restarting work
+### Step 7: Launch the Application
 
-Start Docker Desktop, then run:
+Start the backend API server and frontend Vite development server in separate terminals:
 
+**Terminal 1 (Backend API):**
 ```powershell
-docker compose up -d db
+npm run api
 ```
+*API will be listening at: `http://localhost:3000` (Health check: `http://localhost:3000/api/health`)*
 
-Restart the API and frontend in separate terminals.
-Existing database data is retained in the Docker volume.
+**Terminal 2 (Frontend Web):**
+```powershell
+npm run web
+```
+*Web application will be accessible at: `http://localhost:5173`*
 
-Do not use docker compose down -v unless you deliberately intend
-to delete this project's local database data.
+Open [http://localhost:5173](http://localhost:5173) in your browser and sign in using the administrator credentials created in Step 5.
 
-### Create a local administrator account
+---
 
-After completing database migration and provisioning:
+## Available NPM Scripts
 
-1. Set DEMO_PASSWORD in backend/.env to a private test password.
-   Use 12–72 characters and no surrounding spaces. For ASCII passwords,
-   this also satisfies the script's 72-byte limit.
-2. Keep SEED_DEMO=NO.
-3. From the project root, run:
+From the repository root:
 
-   ```powershell
-   cd backend
-   node scripts/create-dev-admin.js
-   cd ..
-   ```
-
-4. Start the backend and frontend in separate terminals:
-
-   ```powershell
-   npm run api
-   ```
-
-   ```powershell
-   npm run web
-   ```
-
-5. Open http://localhost:5173 and sign in with:
-   - Email: dev1-admin@kandypack.test
-   - Password: the DEMO_PASSWORD used when creating the account.
-
-Run the account-creation script once per local database.
-If the account already exists, the script stops without changing it.
-Changing DEMO_PASSWORD afterward does not reset its password.
-
-Each teammate uses their own local database and credentials.
-Never commit .env files or database backups.
-
-Manual verification results are recorded in backend/test/README.md.
+| Command | Action |
+| :--- | :--- |
+| `npm run api` | Starts backend server with automatic reload on changes (`--watch`) |
+| `npm run web` | Starts Vite frontend development server on port `5173` |
+| `npm run build` | Builds the production frontend bundle into `frontend/dist/` |
+| `npm run check` | Checks backend JavaScript syntax and validates frontend build |
+| `npm run migrate` | Runs pending database migrations in `backend/db/migrations/` |
+| `npm run provision` | Provisions or refreshes privileges for the `kp_app` database user |
+| `npm test` | Runs the automated integration test suite on an isolated test database |
+| `npm run seed` | Seeds demo fixtures (stores, routes, products, staff, orders) when `SEED_DEMO=YES` |

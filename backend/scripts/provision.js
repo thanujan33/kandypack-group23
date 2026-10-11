@@ -17,7 +17,7 @@ try {
   const [routines]=await c.query(`SELECT ROUTINE_NAME name FROM information_schema.ROUTINES
     WHERE ROUTINE_SCHEMA='kandypack'`);
   const present=new Set(routines.map(r=>r.name));
-  for(const name of ['sp_place_order','sp_allocate_order','sp_dispatch_train','sp_receive_allocation',
+  for(const name of ['sp_place_order','sp_cancel_order','sp_allocate_order','sp_dispatch_train','sp_receive_allocation',
     'sp_schedule_delivery','sp_dispatch_delivery','sp_cancel_delivery','sp_return_delivery'])
     if(present.has(name))await c.query(`GRANT EXECUTE ON PROCEDURE kandypack.${name} TO 'kp_app'@'%'`);
   if(present.has('fn_work_minutes')) await c.query(
