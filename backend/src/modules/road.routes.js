@@ -231,7 +231,7 @@ r.post('/road/schedule',async(req,res)=>{
     (
       await call(
         req.user.id,
-        req.user.role === 'STORE' ? 'sp_schedule_store_delivery' : 'sp_schedule_delivery',
+        'sp_schedule_delivery',
         [
           int(b.route_id),
           int(b.truck_id),

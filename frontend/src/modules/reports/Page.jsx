@@ -61,7 +61,9 @@ export default function Page({ user }) {
           placed_at: r.placed_at ? r.placed_at.slice(0, 10) : '—',
           delivery_date: r.delivery_date,
           status: r.status,
-          destination: `${r.city} (${r.route})`,
+          destination: customer
+            ? r.address
+            : `${r.city} (${r.route})`,
           items: itemsText,
           total_units: r.total_quantity,
           total_value_LKR: r.total_value

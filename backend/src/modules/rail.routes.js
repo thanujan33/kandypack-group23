@@ -26,6 +26,31 @@ r.post('/rail/allocate',roles('ADMIN','FACTORY'),async(req,res)=>res.json(
   (await call(req.user.id,'sp_allocate_order',[int(req.body.order_id),int(req.body.train_trip_id)]))[0]));
 r.post('/trains/:id/dispatch',roles('ADMIN','FACTORY'),async(req,res)=>res.json(
   (await call(req.user.id,'sp_dispatch_train',[int(req.params.id)]))[0]));
+r.post('/trains/:id/arrive', roles('ADMIN', 'STORE'), async (req, res) => {
+  const id = int(req.params.id);
+
+  const [train] = await read(
+    `SELECT store_id
+     FROM train_trips
+     WHERE id = ?`,
+    [id]
+  );
+
+  if (!train) fail('Train not found', 404);
+
+  checkStore(req, train.store_id);
+
+  res.json(
+    (
+      await call(
+        req.user.id,
+        'sp_mark_train_arrived',
+        [id, train.store_id]
+      )
+    )[0]
+  );
+});  
+
 r.get('/rail/manifest',roles('ADMIN','FACTORY','STORE'),async(req,res)=>{
   let paging = '';
   if (req.query.limit !== undefined) {
@@ -34,7 +59,14 @@ r.get('/rail/manifest',roles('ADMIN','FACTORY','STORE'),async(req,res)=>{
     paging = ` LIMIT ${l} OFFSET ${o}`;
   }
   return res.json(await read(
-  `SELECT a.*,t.reference,t.store_id,t.departure_at,t.arrival_at,t.status train_status,
+  `SELECT
+    a.*,
+    t.reference,
+    t.store_id,
+    t.departure_at,
+    t.arrival_at,
+    t.actual_arrival_at,
+    t.status train_status,
     p.name product,u.name customer FROM train_allocations a
     JOIN train_trips t ON t.id=a.train_trip_id JOIN products p ON p.id=a.product_id
     JOIN orders o ON o.id=a.order_id JOIN users u ON u.id=o.customer_id

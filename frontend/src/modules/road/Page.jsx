@@ -346,8 +346,8 @@ export default function Page({ user }) {
           </h2>
           <p className="text-xs text-muted mt-0.5">
             {isStore
-              ? 'Choose orders due on or before the trip date. Overdue orders can be included.'
-              : 'Bundle cross-docked orders at store, allocate compliant truck and crew, and reserve roster slots.'}
+              ? 'Choose fully received orders ready at this store. Orders may be scheduled before, on, or after their target delivery date.'
+  : 'Choose orders for the selected route and delivery date.'}
           </p>
         </div>
 
@@ -629,20 +629,32 @@ function matchesTripStatus(status, filter) {
 
 // Explain the existing database rules before submitting the store's form.
 // The database still validates the request again using the latest data.
-function checkSelectedOrders(orders, chosen, route, plannedStart) {
-  if (!chosen.length) throw new Error('Select at least one order.');
+function checkSelectedOrders(orders, chosen, route) {
+  if (!chosen.length) {
+    throw new Error('Select at least one order.');
+  }
+
   if (new Set(chosen.map(Number)).size !== chosen.length) {
     throw new Error('Select each order only once.');
   }
-  const selected = chosen.map(id => orders.find(order => Number(order.id) === Number(id)));
-  if (selected.some(order => !order || order.status !== 'AT_STORE' || Number(order.route_id) !== Number(route))) {
-    throw new Error('Choose fully received orders for this route. Refresh the page if an order has changed.');
-  }
-  const startDate = String(plannedStart || '').slice(0, 10);
-  const mismatches = selected.filter(order => String(order.delivery_date).slice(0, 10) > startDate);
-  if (mismatches.length) {
-    const details = mismatches.map(order => `Order #${order.id}: due ${String(order.delivery_date).slice(0, 10)}`).join('; ');
-    throw new Error(`Trip start date is ${startDate}. ${details}. These orders are not due yet. Choose a trip date on or after their delivery dates. Overdue orders are allowed.`);
+
+  const selected = chosen.map(id =>
+    orders.find(
+      order => Number(order.id) === Number(id)
+    )
+  );
+
+  if (
+    selected.some(
+      order =>
+        !order ||
+        order.status !== 'AT_STORE' ||
+        Number(order.route_id) !== Number(route)
+    )
+  ) {
+    throw new Error(
+      'Choose fully received orders for this route. Refresh the page if an order has changed.'
+    );
   }
 }
 
