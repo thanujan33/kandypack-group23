@@ -508,11 +508,12 @@ export default function Page({ user }) {
                 ...row,
                 city: o.city,
                 route: o.route,
+                delivery_address: o.address,
                 placed_at: o.placed_at?.slice(0, 10),
                 delivery_date: o.delivery_date,
                 status: o.status,
                 value_LKR: o.total_value
-              };
+};
             })}
             pageSize={10}
           />
@@ -597,12 +598,28 @@ export default function Page({ user }) {
                 <span className="text-muted font-medium uppercase tracking-wider block">{isStore ? 'Delivery area' : 'Destination route'}</span>
                 <span className="font-semibold text-slate-900 mt-0.5 block">{detail.order.city} · {detail.order.route}</span>
               </div>
+              <div className="col-span-2 sm:col-span-4 pt-3 border-t border-slate-200">
+                <span className="text-muted font-medium uppercase tracking-wider block">
+                   Delivery Address
+                </span>
+
+                <div className="flex items-start gap-2 mt-1">
+                  <span className="material-symbols-outlined text-blue-600 text-[18px]">
+                     location_on
+                  </span>
+
+                  <span className="font-semibold text-slate-900 text-sm">
+                    {detail.order.address}
+                  </span>
+                </div>
+              </div>
               <div>
                 <span className="text-muted font-medium uppercase tracking-wider block">{isStore ? 'Order total' : 'Order Total'}</span>
                 <span className="font-bold text-slate-900 tabular-nums text-sm mt-0.5 block">
                   LKR {detailTotal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                 </span>
               </div>
+
             </div>
 
             {/* Order Items Table */}
