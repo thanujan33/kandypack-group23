@@ -7,6 +7,8 @@ export const label = 'Road';
 export const order = 40;
 
 export default function Page({ user }) {
+  const isStore = user.role === 'STORE';
+  const [tripFilter, setTripFilter] = useState('ACTIVE');
   const today = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Colombo' }).format(new Date());
   const [directory, setDirectory] = useState({ stores: [], routes: [] }),
     [store, setStore] = useState(user.store_id || 1);
@@ -70,16 +72,17 @@ export default function Page({ user }) {
   const outTripsCount = currentTrips.filter(t => t.status === 'OUT').length;
   const completedTripsCount = currentTrips.filter(t => t.status === 'COMPLETED').length;
   const currentStore = directory.stores.find(s => s.id === Number(store));
+  const visibleTrips = isStore ? currentTrips.filter(trip => matchesTripStatus(trip.status, tripFilter)) : currentTrips;
 
   return (
     <div className="space-y-6">
       {/* Header Context Bar */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-3 border-b border-slate-200/80 gap-3">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight text-slate-900">Road Deliveries & Fleet Rostering</h1>
-          <p className="text-xs text-muted mt-0.5">
+          <h1 className="text-2xl font-bold tracking-tight text-slate-900">{isStore ? 'Road Deliveries' : 'Road Deliveries & Fleet Rostering'}</h1>
+          {!isStore && <p className="text-xs text-muted mt-0.5">
             Regional Hub Final-Mile: Plan truck dispatches, enforce driver rest hours, and record delivery outcomes.
-          </p>
+          </p>}
         </div>
         <button
           type="button"
@@ -88,7 +91,7 @@ export default function Page({ user }) {
           className="flex items-center gap-1.5 self-start sm:self-auto text-xs"
         >
           <span className="material-symbols-outlined text-[16px]">refresh</span>
-          <span>{loading ? 'Refreshing…' : 'Refresh Fleet'}</span>
+          <span>{loading ? 'Refreshing…' : isStore ? 'Refresh' : 'Refresh Fleet'}</span>
         </button>
       </div>
 
@@ -102,13 +105,12 @@ export default function Page({ user }) {
       <div className="card flex flex-wrap items-center gap-4 bg-slate-50/70 border-slate-200/80">
         {user.role === 'STORE' ? (
           <div className="w-full sm:w-64">
-            <span className="text-xs font-semibold uppercase tracking-wider text-slate-500 block">Assigned Operating Depot</span>
+            <span className="text-xs font-semibold uppercase tracking-wider text-slate-500 block">Your Store</span>
             <div className="flex items-center gap-2 mt-1 px-3 py-2 bg-white rounded-lg border border-slate-200 shadow-2xs">
               <span className="material-symbols-outlined text-[18px] text-blue-600">store</span>
               <span className="text-xs font-bold text-slate-900">
-                {currentStore?.city || 'Regional'} Depot
+                {currentStore?.city || 'Your'} Store
               </span>
-              <span className="text-[10px] uppercase font-semibold text-slate-400 ml-auto">Depot #{store}</span>
             </div>
           </div>
         ) : (
@@ -133,7 +135,7 @@ export default function Page({ user }) {
         )}
 
         <div className="w-full sm:w-60">
-          <label htmlFor="week-input">Roster Week Date</label>
+          <label htmlFor="week-input">{isStore ? 'Staff hours: week containing' : 'Roster Week Date'}</label>
           <input
             id="week-input"
             type="date"
@@ -179,25 +181,25 @@ export default function Page({ user }) {
         />
       </div>
 
-      <Banner type="info">
+      {!isStore && <Banner type="info">
         Reserve planned hours before dispatch. A mandatory break of 30 minutes resets consecutive routes. Drivers: 40 hours max per Monday to Sunday week. Assistants: 60 hours max. The database strictly validates limits upon saving.
-      </Banner>
+      </Banner>}
 
       {/* Fleet & Staff Resource Tables */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <div className={isStore ? 'space-y-6' : 'grid grid-cols-1 lg:grid-cols-2 gap-6'}>
         <div className="space-y-3">
           <h2 className="text-base font-bold text-slate-900 mt-0">
             <span className="material-symbols-outlined text-blue-700 text-[18px]">rv_hookup</span>
-            <span>Depot Truck Fleet</span>
+            <span>{isStore ? 'Trucks' : 'Depot Truck Fleet'}</span>
           </h2>
           <Table
             rows={resources.trucks.map(t => ({
-              id: t.id,
+              ...(!isStore ? { id: t.id } : {}),
               plate: t.plate,
               type: t.type,
               capacity_cu: Number(t.capacity).toFixed(2),
-              fleet_status: t.live_status === 'ON_TRIP' ? 'OUT' : (t.active ? 'Available' : 'Unavailable'),
-              active: t.active
+              fleet_status: t.live_status === 'ON_TRIP' ? 'OUT' : (t.active ? 'Available' : isStore ? 'Not available' : 'Unavailable'),
+              ...(!isStore ? { active: t.active } : {})
             }))}
           />
         </div>
@@ -205,17 +207,17 @@ export default function Page({ user }) {
         <div className="space-y-3">
           <h2 className="text-base font-bold text-slate-900 mt-0">
             <span className="material-symbols-outlined text-blue-700 text-[18px]">groups</span>
-            <span>Rostered Staff & Committed Hours</span>
+            <span>{isStore ? 'Staff and Weekly Hours' : 'Rostered Staff & Committed Hours'}</span>
           </h2>
           <Table
             rows={resources.employees.map(e => ({
-              id: e.id,
+              ...(!isStore ? { id: e.id } : {}),
               name: e.name,
-              role: e.role,
-              committed_hours: Number(e.committed_hours || 0).toFixed(1),
+              role: isStore ? (e.role === 'DRIVER' ? 'Driver' : 'Assistant') : e.role,
+              [isStore ? 'hours_used_or_booked' : 'committed_hours']: Number(e.committed_hours || 0).toFixed(1),
               remaining_hours: Number(e.remaining_hours != null ? e.remaining_hours : (e.role === 'DRIVER' ? 40 : 60)).toFixed(1),
               weekly_limit: e.role === 'DRIVER' ? '40.0' : '60.0',
-              active: e.active
+              ...(isStore ? { availability: e.active ? 'Available' : 'Not available' } : { active: e.active })
             }))}
           />
         </div>
@@ -226,7 +228,7 @@ export default function Page({ user }) {
         <summary className="text-sm font-semibold text-blue-700 cursor-pointer list-none flex items-center justify-between">
           <div className="flex items-center gap-2">
             <span className="material-symbols-outlined text-[18px]">build</span>
-            <span>Manage Depot Fleet, Personnel & Availability</span>
+            <span>{isStore ? 'Manage Trucks and Staff' : 'Manage Depot Fleet, Personnel & Availability'}</span>
           </div>
           <span className="material-symbols-outlined text-[18px] transition-transform group-open:rotate-180">expand_more</span>
         </summary>
@@ -275,15 +277,15 @@ export default function Page({ user }) {
                     label: 'Select Truck',
                     options: resources.trucks.map(t => ({
                       value: t.id,
-                      label: `${t.plate} (${t.type}) · Currently ${t.active ? 'Active' : 'Unavailable'}`
+                      label: isStore ? `${t.plate} (${t.type})` : `${t.plate} (${t.type}) · Currently ${t.active ? 'Active' : 'Unavailable'}`
                     }))
                   },
                   {
                     name: 'active',
-                    label: 'Target Availability',
+                    label: isStore ? 'Availability' : 'Target Availability',
                     options: [
-                      { value: '1', label: 'Active (Available for trips)' },
-                      { value: '0', label: 'Unavailable (Maintenance / Off-duty)' }
+                      { value: '1', label: isStore ? 'Available' : 'Active (Available for trips)' },
+                      { value: '0', label: isStore ? 'Not available' : 'Unavailable (Maintenance / Off-duty)' }
                     ]
                   }
                 ]}
@@ -308,15 +310,15 @@ export default function Page({ user }) {
                     label: 'Select Employee',
                     options: resources.employees.map(e => ({
                       value: e.id,
-                      label: `${e.name} (${e.role}) · Currently ${e.active ? 'Active' : 'Unavailable'}`
+                      label: isStore ? `${e.name} (${e.role === 'DRIVER' ? 'Driver' : 'Assistant'})` : `${e.name} (${e.role}) · Currently ${e.active ? 'Active' : 'Unavailable'}`
                     }))
                   },
                   {
                     name: 'active',
-                    label: 'Target Availability',
+                    label: isStore ? 'Availability' : 'Target Availability',
                     options: [
-                      { value: '1', label: 'Active (Available for rosters)' },
-                      { value: '0', label: 'Unavailable (On leave / Off-duty)' }
+                      { value: '1', label: isStore ? 'Available' : 'Active (Available for rosters)' },
+                      { value: '0', label: isStore ? 'Not available' : 'Unavailable (On leave / Off-duty)' }
                     ]
                   }
                 ]}
@@ -340,10 +342,12 @@ export default function Page({ user }) {
         <div className="border-b border-slate-100 pb-3">
           <h2 className="text-lg font-bold text-slate-900 mt-0">
             <span className="material-symbols-outlined text-blue-700 text-[20px]">route</span>
-            <span>Plan & Reserve Final-Mile Road Delivery</span>
+            <span>{isStore ? 'Plan a Delivery Trip' : 'Plan & Reserve Final-Mile Road Delivery'}</span>
           </h2>
           <p className="text-xs text-muted mt-0.5">
-            Bundle cross-docked orders at store, allocate compliant truck and crew, and reserve roster slots.
+            {isStore
+              ? 'Choose orders due on or before the trip date. Overdue orders can be included.'
+              : 'Bundle cross-docked orders at store, allocate compliant truck and crew, and reserve roster slots.'}
           </p>
         </div>
 
@@ -407,22 +411,26 @@ export default function Page({ user }) {
               {
                 name: 'truck_id',
                 label: 'Delivery Truck',
-                options: options(resources.trucks.filter(x => x.active), 'plate')
+                options: isStore ? resources.trucks.filter(x => x.active).map(x => ({ value: x.id, label: x.plate })) : options(resources.trucks.filter(x => x.active), 'plate')
               },
               {
                 name: 'driver_id',
                 label: 'Driver (Licensed)',
-                options: options(resources.employees.filter(e => e.role === 'DRIVER' && e.active))
+                options: isStore ? activeDrivers.map(e => ({ value: e.id, label: e.name })) : options(resources.employees.filter(e => e.role === 'DRIVER' && e.active))
               },
               {
                 name: 'assistant_id',
                 label: 'Driver Assistant',
-                options: options(resources.employees.filter(e => e.role === 'ASSISTANT' && e.active))
+                options: isStore ? activeAssistants.map(e => ({ value: e.id, label: e.name })) : options(resources.employees.filter(e => e.role === 'ASSISTANT' && e.active))
               },
               { name: 'planned_start', label: 'Planned Start Time', type: 'datetime-local' },
               { name: 'planned_end', label: 'Planned End Time', type: 'datetime-local' }
             ]}
             onSubmit={async b => {
+              if (isStore) {
+                checkSelectedOrders(orders, chosen, route, b.planned_start);
+                checkTripDuration(b.planned_start, b.planned_end, localRoutes.find(r => r.id === Number(route))?.max_minutes);
+              }
               const r = await send('/road/schedule')({
                 ...b,
                 route_id: route,
@@ -439,12 +447,27 @@ export default function Page({ user }) {
       <section className="space-y-4">
         <h2 className="text-lg font-bold text-slate-900">
           <span className="material-symbols-outlined text-blue-700 text-[20px]">departure_board</span>
-          <span>Delivery Trips Registry</span>
+          <span>{isStore ? 'Delivery Trips' : 'Delivery Trips Registry'}</span>
         </h2>
 
+        {isStore && (
+          <div className="max-w-sm">
+            <label htmlFor="delivery-trip-filter">Trips to show</label>
+            <select id="delivery-trip-filter" value={tripFilter} onChange={e => setTripFilter(e.target.value)}>
+              <option value="ACTIVE">Open trips</option>
+              <option value="PLANNED">Planned</option>
+              <option value="OUT">Out for delivery</option>
+              <option value="COMPLETED">Completed</option>
+              <option value="CANCELLED">Cancelled</option>
+              <option value="ALL">All trips</option>
+            </select>
+            <p className="text-xs text-muted mt-1">Open trips includes planned trips and trips out for delivery.</p>
+          </div>
+        )}
         <Table
-          rows={currentTrips.map(t => ({
-            trip_id: `#${t.id}`,
+          key={isStore ? `${tripFilter}-${visibleTrips.map(t => t.id).join(',')}` : 'all-trips'}
+          rows={visibleTrips.map(t => ({
+            ...(!isStore ? { trip_id: `#${t.id}` } : {}),
             route: t.route,
             truck_plate: t.plate,
             driver: t.driver,
@@ -473,7 +496,7 @@ export default function Page({ user }) {
                     .filter(t => t.status === 'PLANNED')
                     .map(t => ({
                       value: t.id,
-                      label: `Trip #${t.id} · ${t.route} (${t.plate || 'Truck'}) · Planned: ${t.planned_start ? t.planned_start.replace('T', ' ').slice(0, 16) : '—'}`
+                      label: `${isStore ? '' : `Trip #${t.id} · `}${t.route} (${t.plate || 'Truck'}) · Planned: ${t.planned_start ? t.planned_start.replace('T', ' ').slice(0, 16) : '—'}`
                     }))
                 },
                 {
@@ -529,7 +552,7 @@ export default function Page({ user }) {
               .filter(t => t.status === 'OUT')
               .map(t => (
                 <option key={t.id} value={t.id}>
-                  Trip #{t.id} | {t.route} ({t.plate}) | Departed: {t.actual_start ? t.actual_start.replace('T', ' ').slice(0, 16) : '—'}
+                  {!isStore && `Trip #${t.id} | `}{t.route} ({t.plate}) | Departed: {t.actual_start ? t.actual_start.replace('T', ' ').slice(0, 16) : '—'}
                 </option>
               ))}
           </select>
@@ -595,4 +618,44 @@ export default function Page({ user }) {
       </section>
     </div>
   );
+}
+
+// Store-only display filter. IDs remain in state and API requests.
+function matchesTripStatus(status, filter) {
+  return filter === 'ALL' || (filter === 'ACTIVE'
+    ? status === 'PLANNED' || status === 'OUT'
+    : status === filter);
+}
+
+// Explain the existing database rules before submitting the store's form.
+// The database still validates the request again using the latest data.
+function checkSelectedOrders(orders, chosen, route, plannedStart) {
+  if (!chosen.length) throw new Error('Select at least one order.');
+  if (new Set(chosen.map(Number)).size !== chosen.length) {
+    throw new Error('Select each order only once.');
+  }
+  const selected = chosen.map(id => orders.find(order => Number(order.id) === Number(id)));
+  if (selected.some(order => !order || order.status !== 'AT_STORE' || Number(order.route_id) !== Number(route))) {
+    throw new Error('Choose fully received orders for this route. Refresh the page if an order has changed.');
+  }
+  const startDate = String(plannedStart || '').slice(0, 10);
+  const mismatches = selected.filter(order => String(order.delivery_date).slice(0, 10) > startDate);
+  if (mismatches.length) {
+    const details = mismatches.map(order => `Order #${order.id}: due ${String(order.delivery_date).slice(0, 10)}`).join('; ');
+    throw new Error(`Trip start date is ${startDate}. ${details}. These orders are not due yet. Choose a trip date on or after their delivery dates. Overdue orders are allowed.`);
+  }
+}
+
+
+function checkTripDuration(start, end, maximumMinutes) {
+  // The project's trip dates use Sri Lanka time, including on browsers abroad.
+  const startTime = new Date(String(start).replace(' ', 'T') + '+05:30').getTime();
+  const endTime = new Date(String(end).replace(' ', 'T') + '+05:30').getTime();
+  if (!Number.isFinite(startTime) || !Number.isFinite(endTime) || endTime <= startTime) {
+    throw new Error('Choose an end time after the start time.');
+  }
+  const minutes = (endTime - startTime) / 60000;
+  if (Number.isFinite(Number(maximumMinutes)) && minutes > Number(maximumMinutes)) {
+    throw new Error(`This trip lasts ${Math.round(minutes)} minutes. The selected route allows up to ${maximumMinutes} minutes. Choose an earlier end time.`);
+  }
 }

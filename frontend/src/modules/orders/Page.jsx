@@ -6,7 +6,83 @@ export const roles = ['CUSTOMER', 'ADMIN', 'FACTORY', 'STORE'];
 export const label = 'Orders';
 export const order = 20;
 
+const orderStatuses = [
+  { value: 'ALL', label: 'All' },
+  { value: 'AT_STORE', label: 'At Store' },
+  { value: 'SCHEDULED', label: 'Scheduled' },
+  { value: 'OUT_FOR_DELIVERY', label: 'Out for Delivery' },
+  { value: 'DELIVERED', label: 'Delivered' },
+  { value: 'PENDING', label: 'Pending' },
+  { value: 'ALLOCATED', label: 'Allocated' },
+  { value: 'ON_TRAIN', label: 'On Train' },
+  { value: 'PARTIAL_AT_STORE', label: 'Partly Received' },
+  { value: 'MISSING', label: 'Missing Items' },
+  { value: 'CANCELLED', label: 'Cancelled' }
+];
+
+function StoreOrderLookup({ orders, onLookup }) {
+  const [id, setId] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [feedback, setFeedback] = useState({ text: '', isError: false });
+  const selectedId = orders.some(o => String(o.id) === id) ? id : '';
+
+  return (
+    <form className="space-y-3" onSubmit={async e => {
+      e.preventDefault();
+      const orderId = Number(id);
+      if (!Number.isSafeInteger(orderId) || orderId < 1) {
+        setFeedback({ text: 'Enter a positive whole-number order ID.', isError: true });
+        return;
+      }
+      setBusy(true);
+      setFeedback({ text: '', isError: false });
+      try {
+        await onLookup(orderId);
+        setFeedback({ text: `Order #${orderId} loaded.`, isError: false });
+      } catch (error) {
+        setFeedback({ text: error.message || 'Unable to load this order.', isError: true });
+      } finally {
+        setBusy(false);
+      }
+    }}>
+      <p className="text-xs text-muted">
+        Choose an order or type its ID. Searching by ID also works outside the date and status filters.
+      </p>
+      <div className="grid gap-3 md:grid-cols-2">
+        <div>
+          <label htmlFor="store-order-choice">Choose an order</label>
+          <select id="store-order-choice" value={selectedId} disabled={busy}
+            onChange={e => setId(e.target.value)}>
+            <option value="">Choose an order...</option>
+            {orders.map(o => (
+              <option key={o.id} value={o.id}>
+                #{o.id} · {o.customer || o.city} · {orderStatuses.find(s => s.value === o.status)?.label || o.status} · Due: {o.delivery_date}
+              </option>
+            ))}
+          </select>
+        </div>
+        <div>
+          <label htmlFor="store-order-id">Order ID</label>
+          <input id="store-order-id" name="order_id" type="number" min="1" step="1"
+            placeholder="For example, 30" required value={id} disabled={busy}
+            onChange={e => setId(e.target.value)} />
+        </div>
+      </div>
+      <button type="submit" disabled={busy}>{busy ? 'Loading order...' : 'View order'}</button>
+      {feedback.text && (
+        <p role={feedback.isError ? 'alert' : 'status'}
+          className={`rounded-lg border p-3 text-xs font-medium ${feedback.isError
+            ? 'border-rose-200 bg-rose-50 text-rose-800'
+            : 'border-emerald-200 bg-emerald-50 text-emerald-800'}`}>
+          {feedback.text}
+        </p>
+      )}
+    </form>
+  );
+}
+
 export default function Page({ user }) {
+  const isStore = user.role === 'STORE';
   const [products, setProducts] = useState([]),
     [routes, setRoutes] = useState([]),
     [orders, setOrders] = useState([]);
@@ -18,15 +94,31 @@ export default function Page({ user }) {
     [to, setTo] = useState(''),
     [search, setSearch] = useState('');
   const [edit, setEdit] = useState(null);
+  const [statusFilter, setStatusFilter] = useState(isStore ? 'AT_STORE' : 'ALL');
+  const [appliedDates, setAppliedDates] = useState({ from: '', to: '' });
 
-  async function load() {
+  async function load(dateFrom = from, dateTo = to) {
+    if (isStore && dateFrom && dateTo && dateFrom > dateTo) {
+      setErrors({ history: 'The From date must be on or before the To date.' });
+      return;
+    }
     setLoading(true);
     setErrors({});
-    await Promise.all([
+    const requests = [
+      ['history', `/orders?from=${dateFrom}&to=${dateTo}`, data => {
+        // Apply both date bounds to the store's order list, including the final day.
+        setOrders(isStore ? data.filter(o => {
+          const placed = o.placed_at?.slice(0, 10);
+          return (!dateFrom || placed >= dateFrom) && (!dateTo || placed <= dateTo);
+        }) : data);
+        setAppliedDates({ from: dateFrom, to: dateTo });
+      }]
+    ];
+    if (!isStore) requests.unshift(
       ['products', '/products', setProducts],
-      ['coverage', '/directory', d => setRoutes(d.routes)],
-      ['history', `/orders?from=${from}&to=${to}`, setOrders]
-    ].map(async ([section, path, update]) => {
+      ['coverage', '/directory', d => setRoutes(d.routes)]
+    );
+    await Promise.all(requests.map(async ([section, path, update]) => {
       try {
         update(await api(path));
       } catch (e) {
@@ -61,6 +153,12 @@ export default function Page({ user }) {
     ['ALLOCATED', 'ON_TRAIN', 'AT_STORE', 'SCHEDULED', 'OUT_FOR_DELIVERY'].includes(o.status)
   ).length;
   const deliveredCount = orders.filter(o => o.status === 'DELIVERED').length;
+  const atStoreCount = orders.filter(o => o.status === 'AT_STORE').length;
+  const outForDeliveryCount = orders.filter(o => o.status === 'OUT_FOR_DELIVERY').length;
+  const visibleOrders = isStore && statusFilter !== 'ALL'
+    ? orders.filter(o => o.status === statusFilter)
+    : orders;
+  const selectedStatus = orderStatuses.find(s => s.value === statusFilter)?.label || statusFilter;
 
   const detailTotal = detail?.items?.reduce(
     (sum, item) => sum + Number(item.line_total ?? (Number(item.quantity) * Number(item.unit_price))),
@@ -76,31 +174,52 @@ export default function Page({ user }) {
             {user.role === 'CUSTOMER'
               ? 'Your Orders & Consignments'
               : user.role === 'STORE'
-              ? 'Depot Consignment Registry'
+              ? 'Store Orders'
               : 'Shipments & Order Management'}
           </h1>
-          <p className="text-xs text-muted mt-0.5">
+          {!isStore && <p className="text-xs text-muted mt-0.5">
             {user.role === 'CUSTOMER'
               ? 'Browse catalog products, place advance delivery orders, and track your active consignments.'
-              : user.role === 'STORE'
-              ? 'Monitor regional depot consignments, verify cross-docked inventory, and track fulfillment lifecycles.'
               : user.role === 'FACTORY'
               ? 'Manage catalog product specifications, plan advance dispatch volumes, and track consignment lifecycles.'
               : 'Manage product catalogs, oversee intermodal network dispatches, and audit consignment lifecycles.'}
-          </p>
+          </p>}
         </div>
         <button
           type="button"
-          onClick={load}
+          onClick={() => load()}
           disabled={loading}
           className="flex items-center gap-1.5 self-start sm:self-auto text-xs"
         >
           <span className="material-symbols-outlined text-[16px]">refresh</span>
-          <span>{loading ? 'Refreshing…' : 'Refresh Data'}</span>
+          <span>{loading ? 'Refreshing…' : isStore ? 'Refresh' : 'Refresh Data'}</span>
         </button>
       </div>
 
       {/* KPI Metric Overview Strip */}
+      {isStore ? (
+        <div className="space-y-2">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+            <StatCard title="Total Orders" value={loading || errors.history ? '—' : orders.length}
+              subtitle="All orders for your store" icon="inventory_2" color="blue" />
+            <StatCard title="At Store" value={loading || errors.history ? '—' : atStoreCount}
+              subtitle="Ready to schedule for delivery" icon="warehouse" color="amber" />
+            <StatCard title="Out for Delivery" value={loading || errors.history ? '—' : outForDeliveryCount}
+              subtitle="Currently on a delivery truck" icon="local_shipping" color="teal" />
+            <StatCard title="Delivered" value={loading || errors.history ? '—' : deliveredCount}
+              subtitle="Successfully delivered to customers" icon="task_alt" color="emerald" />
+          </div>
+          <p className="text-xs text-muted">
+            {appliedDates.from && appliedDates.to
+              ? `Counts cover orders placed from ${appliedDates.from} through ${appliedDates.to}.`
+              : appliedDates.from
+              ? `Counts cover orders placed on or after ${appliedDates.from}.`
+              : appliedDates.to
+              ? `Counts cover orders placed on or before ${appliedDates.to}.`
+              : 'Counts cover all dates.'} The status filter below only changes the order list.
+          </p>
+        </div>
+      ) : (
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
         <StatCard
           title={user.role === 'CUSTOMER' ? 'Your Orders' : user.role === 'STORE' ? 'Depot Consignments' : 'Total Consignments'}
@@ -131,8 +250,10 @@ export default function Page({ user }) {
           color="emerald"
         />
       </div>
+      )}
 
       {/* Product Catalog Section */}
+      {!isStore && (
       <section className="space-y-3">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
           <h2 className="text-lg font-bold text-slate-900">
@@ -235,6 +356,7 @@ export default function Page({ user }) {
           );
         })()}
       </section>
+      )}
 
       {/* Customer Ordering Workflow */}
       {user.role === 'CUSTOMER' && (
@@ -337,28 +459,49 @@ export default function Page({ user }) {
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <h2 className="text-lg font-bold text-slate-900">
             <span className="material-symbols-outlined text-blue-700 text-[20px]">manage_search</span>
-            <span>Consignment History & Tracking Registry</span>
+            <span>{isStore ? 'Order list' : 'Consignment History & Tracking Registry'}</span>
           </h2>
           <div className="flex flex-wrap items-center gap-2">
-            <div className="flex items-center gap-1.5 text-xs">
-              <span className="text-muted font-medium">From:</span>
-              <input type="date" value={from} onChange={e => setFrom(e.target.value)} className="w-auto py-1 text-xs" />
-              <span className="text-muted font-medium">To:</span>
-              <input type="date" value={to} onChange={e => setTo(e.target.value)} className="w-auto py-1 text-xs" />
+            {isStore && (
+              <div className="flex items-center gap-1.5 text-xs">
+                <label htmlFor="store-order-status" className="mb-0 normal-case tracking-normal">Status:</label>
+                <select id="store-order-status" value={statusFilter}
+                  onChange={e => setStatusFilter(e.target.value)} className="w-auto py-1 text-xs mt-0">
+                  {orderStatuses.map(s => <option key={s.value} value={s.value}>{s.label}</option>)}
+                </select>
+              </div>
+            )}
+            <div className="flex flex-wrap items-center gap-1.5 text-xs">
+              <label htmlFor="order-date-from" className="mb-0 normal-case tracking-normal">From:</label>
+              <input id="order-date-from" type="date" value={from} onChange={e => setFrom(e.target.value)} className="w-auto py-1 text-xs" />
+              <label htmlFor="order-date-to" className="mb-0 normal-case tracking-normal">To:</label>
+              <input id="order-date-to" type="date" value={to} onChange={e => setTo(e.target.value)} className="w-auto py-1 text-xs" />
             </div>
-            <button type="button" onClick={load} disabled={loading} className="text-xs py-1.5 px-3">
+            <button type="button" onClick={() => load()} disabled={loading} className="text-xs py-1.5 px-3">
               Filter
             </button>
+            {isStore && (
+              <button type="button" disabled={loading} className="text-xs py-1.5 px-3 bg-slate-200 text-slate-800 hover:bg-slate-300"
+                onClick={() => { setFrom(''); setTo(''); load('', ''); }}>
+                Clear dates
+              </button>
+            )}
           </div>
         </div>
 
+        {isStore && <p className="text-xs text-muted">Dates filter when orders were placed. Choose a status to update the list immediately.</p>}
         {errors.history && <p role="alert" className="text-xs text-rose-600 font-medium">Unable to load orders: {errors.history}</p>}
 
         {loading ? (
-          <p className="text-xs text-muted">Loading order registry…</p>
+          <p className="text-xs text-muted">{isStore ? 'Loading orders…' : 'Loading order registry…'}</p>
+        ) : isStore && errors.history ? null : isStore && visibleOrders.length === 0 ? (
+          <Banner>
+            {statusFilter === 'ALL' ? 'No orders match these filters.' : `No orders with status "${selectedStatus}" match these filters.`} Try another status or clear the dates.
+          </Banner>
         ) : (
           <Table
-            rows={orders.map(o => {
+            key={isStore ? `${statusFilter}:${orders.map(o => o.id).join(',')}` : 'history'}
+            rows={visibleOrders.map(o => {
               const row = { id: o.id };
               if (user.role !== 'CUSTOMER') row.customer = o.customer || user.name;
               return {
@@ -406,15 +549,21 @@ export default function Page({ user }) {
       <section className="card space-y-4">
         <h2 className="text-lg font-bold text-slate-900 mt-0">
           <span className="material-symbols-outlined text-blue-700 text-[20px]">find_in_page</span>
-          <span>Inspect Order Lifecycle & Consignment Manifest</span>
+          <span>{isStore ? 'Find an order' : 'Inspect Order Lifecycle & Consignment Manifest'}</span>
         </h2>
 
+        {isStore ? (
+          <StoreOrderLookup orders={orders} onLookup={async id => {
+            setDetail(null);
+            setDetail(await api('/orders/' + id));
+          }} />
+        ) : (
         <Form
           button="Inspect Consignment"
           fields={[
             {
               name: 'id',
-              label: 'Select order from registry or enter ID',
+              label: 'Select an order',
               options: orders.map(o => ({
                 value: o.id,
                 label: `#${o.id} · ${o.customer ? o.customer + ' · ' : ''}${o.city} · ${o.status} · Due: ${o.delivery_date}`
@@ -427,6 +576,7 @@ export default function Page({ user }) {
             return { message: `Order #${b.id} manifest loaded` };
           }}
         />
+        )}
 
         {detail && (
           <div className="space-y-4 pt-2">
@@ -436,19 +586,19 @@ export default function Page({ user }) {
             {/* Consignment Overview Strip */}
             <div className="p-4 rounded-xl bg-slate-50 border border-slate-200/80 grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
               <div>
-                <span className="text-muted font-medium uppercase tracking-wider block">Consignment ID</span>
+                <span className="text-muted font-medium uppercase tracking-wider block">{isStore ? 'Order ID' : 'Consignment ID'}</span>
                 <span className="font-bold text-slate-900 font-mono text-sm mt-0.5 block">#KP-{detail.order.id}</span>
               </div>
               <div>
-                <span className="text-muted font-medium uppercase tracking-wider block">Target Delivery</span>
+                <span className="text-muted font-medium uppercase tracking-wider block">{isStore ? 'Delivery date' : 'Target Delivery'}</span>
                 <span className="font-semibold text-slate-900 mt-0.5 block">{detail.order.delivery_date}</span>
               </div>
               <div>
-                <span className="text-muted font-medium uppercase tracking-wider block">Destination Corridor</span>
+                <span className="text-muted font-medium uppercase tracking-wider block">{isStore ? 'Delivery area' : 'Destination Corridor'}</span>
                 <span className="font-semibold text-slate-900 mt-0.5 block">{detail.order.city} · {detail.order.route}</span>
               </div>
               <div>
-                <span className="text-muted font-medium uppercase tracking-wider block">Consignment Total</span>
+                <span className="text-muted font-medium uppercase tracking-wider block">{isStore ? 'Order total' : 'Consignment Total'}</span>
                 <span className="font-bold text-slate-900 tabular-nums text-sm mt-0.5 block">
                   LKR {detailTotal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                 </span>
@@ -457,7 +607,7 @@ export default function Page({ user }) {
 
             {/* Order Items Table */}
             <div>
-              <h3 className="text-sm font-bold text-slate-800 mb-2">Manifest Line Items</h3>
+              <h3 className="text-sm font-bold text-slate-800 mb-2">{isStore ? 'Items in this order' : 'Manifest Line Items'}</h3>
               <Table
                 rows={detail.items.map(item => ({
                   product: item.name,
