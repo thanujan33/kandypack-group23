@@ -61,10 +61,32 @@ test('six report APIs return valid data', async () => {
 });
 test('store scope is enforced on a mutation', async () => {
     const manifest = await request('/rail/manifest', tokens.colombo);
-    const row = manifest.body[0]; assert.ok(row);
-    assert.equal((await request('/rail/receive', tokens.galle, 'POST', {
-        allocation_id: row.id, received_qty: row.quantity
-    })).status, 403);
+    const row = manifest.body[0];
+    assert.ok(row);
+
+    // Galle manager cannot mark Colombo's train as arrived
+    assert.equal(
+        (
+            await request(
+                `/trains/${row.train_trip_id}/arrive`,
+                tokens.galle,
+                'POST',
+                {}
+            )
+        ).status,
+        403
+    );
+
+    // Galle manager cannot receive Colombo's goods
+    assert.equal(
+        (
+            await request('/rail/receive', tokens.galle, 'POST', {
+                allocation_id: row.id,
+                received_qty: row.quantity
+            })
+        ).status,
+        403
+    );
 });
 test('reserve dispatch return and failed-order retry keep correct states', async () => {
     const [[o]] = await c.query(`SELECT o.*,r.store_id FROM orders o JOIN routes r ON r.id=o.route_id

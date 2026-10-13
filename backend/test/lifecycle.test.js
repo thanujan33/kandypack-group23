@@ -133,6 +133,13 @@ test('end-to-end order lifecycle through all 7 states with audit verification', 
     // Wait until scheduled arrival time arrives (arrival_at <= NOW())
     await new Promise(r => setTimeout(r, 1000));
 
+    await request(
+        `/trains/${train.id}/arrive`,
+        tokens.colombo,
+        'POST',
+        {}
+    );
+
     const receiveRes = await request('/rail/receive', tokens.colombo, 'POST', {
         allocation_id: allocation.id,
         received_qty: allocation.quantity

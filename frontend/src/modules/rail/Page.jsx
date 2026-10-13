@@ -45,12 +45,27 @@ export default function Page({ user }) {
     await load();
     return r;
   };
+  const markArrived = async id => {
+    const result = await api(`/trains/${id}/arrive`, {
+      method: 'POST'
+    });
 
+    await load();
+    return result;
+  };
   const selectedTrain = edit ? trains.find(t => t.id === Number(edit)) : null;
 
   if (user.role === 'STORE') {
-    return <StoreRail trains={trains} manifest={manifest} orders={orders}
-      loading={loading} error={error} onRefresh={load} onReceive={send('/rail/receive')} />;
+    return <StoreRail
+      trains={trains}
+      manifest={manifest}
+      orders={orders}
+      loading={loading}
+      error={error}
+      onRefresh={load}
+      onReceive={send('/rail/receive')}
+      onArrive={markArrived}
+    />;
   }
 
   return (
@@ -193,9 +208,8 @@ export default function Page({ user }) {
                     <button
                       key={t.id}
                       type="button"
-                      className={`text-xs px-2.5 py-1 border ${
-                        edit === String(t.id) ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-slate-700 border-slate-300'
-                      }`}
+                      className={`text-xs px-2.5 py-1 border ${edit === String(t.id) ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-slate-700 border-slate-300'
+                        }`}
                       onClick={() => setEdit(String(t.id))}
                     >
                       Trip #{t.id} ({t.reference})
@@ -289,10 +303,10 @@ export default function Page({ user }) {
               m.train_status === 'SCHEDULED'
                 ? 'SCHEDULED'
                 : Number(m.received_qty) >= Number(m.quantity)
-                ? 'COMPLETED'
-                : Number(m.received_qty) > 0
-                ? 'ALLOCATED'
-                : m.train_status,
+                  ? 'COMPLETED'
+                  : Number(m.received_qty) > 0
+                    ? 'ALLOCATED'
+                    : m.train_status,
             arrival: m.arrival_at ? m.arrival_at.replace('T', ' ').slice(0, 16) : '—'
           }))}
         />
@@ -411,9 +425,12 @@ function RailFilter({ id, label, value, onChange, choices }) {
   );
 }
 
-function StoreRail({ trains, manifest, orders, loading, error, onRefresh, onReceive }) {
+function StoreRail({ trains, manifest, orders, loading, error, onRefresh, onReceive, onArrive }) {
   const [trainFilter, setTrainFilter] = useState('ACTIVE');
   const [orderFilter, setOrderFilter] = useState('ATTENTION');
+  const inTransitTrains = trains.filter(
+    train => train.status === 'IN_TRANSIT'
+  );
 
   const orderStatuses = new Map(orders.map(order => [Number(order.id), order.status]));
   // Sum the actual assigned goods, not the train's total or available capacity.
@@ -436,7 +453,9 @@ function StoreRail({ trains, manifest, orders, loading, error, onRefresh, onRece
   }
   // Preserve the existing receiving rules; the backend validates arrival time
   // and cumulative quantities. Table filters never change receipt eligibility.
-  const receivable = manifest.filter(row => row.train_status !== 'SCHEDULED');
+  const receivable = manifest.filter(
+    row => row.train_status === 'ARRIVED'
+  );
 
   return (
     <div className="space-y-6">
@@ -478,6 +497,7 @@ function StoreRail({ trains, manifest, orders, loading, error, onRefresh, onRece
               train_reference: train.reference,
               scheduled_departure: displayDate(train.departure_at),
               scheduled_arrival: displayDate(train.arrival_at),
+              actual_arrival: displayDate(train.actual_arrival_at),
               train_status: train.status,
               goods_space: (goodsSpace.get(Number(train.id)) || 0).toFixed(3)
             }))} />
@@ -513,11 +533,54 @@ function StoreRail({ trains, manifest, orders, loading, error, onRefresh, onRece
         )}
       </section>
 
+      <section className="card space-y-3">
+        <h2 className="text-base font-bold text-slate-900 mt-0">
+          Confirm Train Arrival
+        </h2>
+
+        <p className="text-xs text-muted">
+          Confirm a train only when it has physically reached this store.
+          The actual arrival time will be recorded automatically.
+        </p>
+
+        {inTransitTrains.length ? (
+          <div className="space-y-2">
+            {inTransitTrains.map(train => (
+              <div
+                key={train.id}
+                className="flex items-center justify-between gap-4 border border-slate-200 rounded-lg p-3"
+              >
+                <div>
+                  <p className="font-semibold text-slate-900">
+                    {train.reference}
+                  </p>
+
+                  <p className="text-xs text-muted">
+                    Scheduled arrival: {displayDate(train.arrival_at)}
+                  </p>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => onArrive(train.id)}
+                >
+                  Mark Train Arrived
+                </button>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <p className="text-sm text-muted">
+            No trains are currently in transit to this store.
+          </p>
+        )}
+      </section>
+
       <section className="card space-y-3 bg-gradient-to-b from-white to-slate-50/40">
         <h2 className="text-base font-bold text-slate-900 mt-0">Record Received Goods</h2>
         <p className="text-xs text-muted">
           Select the product and train, then enter the total received so far. If you recorded 8 and later receive 2 more, enter 10.
-          You can save a receipt only after the scheduled arrival time.
+          You can save received quantities only after the train has been confirmed as arrived at this store.
         </p>
         {receivable.length ? (
           <Form fields={[
