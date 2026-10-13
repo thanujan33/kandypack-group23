@@ -1,8 +1,13 @@
--- Store managers may schedule fully received orders on or after their due date.
--- Keep the original due date for delivery history and reporting.
--- The original administrator procedure and all other scheduling checks remain unchanged.
+-- Unify road delivery scheduling for ADMIN and STORE.
+-- Any fully received AT_STORE order on the selected route may be scheduled,
+-- whether the trip is before, on, or after the target delivery date.
+
 DELIMITER $$
-CREATE PROCEDURE sp_schedule_store_delivery(
+
+DROP PROCEDURE IF EXISTS sp_schedule_store_delivery$$
+DROP PROCEDURE IF EXISTS sp_schedule_delivery$$
+
+CREATE PROCEDURE sp_schedule_delivery(
   IN p_route INT,
   IN p_truck INT,
   IN p_driver INT,
@@ -37,7 +42,8 @@ BEGIN
     OR JSON_LENGTH(p_orders) NOT BETWEEN 1 AND 100
   THEN
     SIGNAL SQLSTATE '45000'
-      SET MESSAGE_TEXT = 'Choose a future start and 1 to 100 orders';
+      SET MESSAGE_TEXT =
+        'Choose a future start and 1 to 100 orders';
   END IF;
 
   IF EXISTS(
@@ -50,7 +56,6 @@ BEGIN
     WHERE o.id IS NULL
       OR o.status <> 'AT_STORE'
       OR o.route_id <> p_route
-      OR o.delivery_date > DATE(p_start)
   )
   OR (
     SELECT COUNT(DISTINCT id)
@@ -62,7 +67,7 @@ BEGIN
   THEN
     SIGNAL SQLSTATE '45000'
       SET MESSAGE_TEXT =
-        'Orders must be unique, at store, on this route and due on or before the trip date';
+        'Orders must be unique, fully received at the store, and belong to the selected route';
   END IF;
 
   SELECT SUM(t.total_space)
@@ -81,7 +86,8 @@ BEGIN
 
   IF v_space > v_capacity THEN
     SIGNAL SQLSTATE '45000'
-      SET MESSAGE_TEXT = 'Selected orders exceed truck capacity';
+      SET MESSAGE_TEXT =
+        'Selected orders exceed truck capacity';
   END IF;
 
   INSERT INTO delivery_trips(
@@ -107,7 +113,9 @@ BEGIN
     trip_id,
     order_id
   )
-  SELECT v_trip,id
+  SELECT
+    v_trip,
+    id
   FROM JSON_TABLE(
     p_orders,
     '$[*]' COLUMNS(id INT PATH '$')
@@ -122,7 +130,9 @@ BEGIN
   COMMIT;
 
   SELECT
-    v_trip id,
-    'Delivery reserved; dispatch at the actual start time' message;
+    v_trip AS id,
+    'Delivery reserved; dispatch at the actual start time' AS message;
+
 END$$
+
 DELIMITER ;

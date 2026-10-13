@@ -51,7 +51,7 @@ function App() {
                 Logistics OS
               </span>
             </div>
-            <p className="text-[11px] text-slate-300 mt-0.5">Bi-Modal Freight & Distribution · Group 23</p>
+            <p className="text-[11px] text-slate-300 mt-0.5">Freight and Distribution</p>
           </div>
         </div>
 
@@ -117,11 +117,11 @@ function App() {
               fields={[
                 ...(register
                   ? [
-                      { name: 'name', label: 'Full name' },
-                      { name: 'phone', label: 'Contact phone' },
-                      { name: 'nic', label: 'NIC number', optional: true },
-                      { name: 'address', label: 'Delivery address' }
-                    ]
+                    { name: 'name', label: 'Full name' },
+                    { name: 'phone', label: 'Contact phone' },
+                    { name: 'nic', label: 'NIC number', optional: true },
+                    { name: 'address', label: 'Delivery address' }
+                  ]
                   : []),
                 { name: 'email', label: 'Email address', type: 'email' },
                 { name: 'password', label: 'Password', type: 'password' }
@@ -162,11 +162,10 @@ function App() {
                     key={m.label}
                     type="button"
                     onClick={() => setTab(m.label)}
-                    className={`flex items-center gap-2 px-3.5 py-2 rounded-lg text-xs font-semibold transition-all whitespace-nowrap shadow-none ${
-                      active
+                    className={`flex items-center gap-2 px-3.5 py-2 rounded-lg text-xs font-semibold transition-all whitespace-nowrap shadow-none ${active
                         ? 'bg-white text-blue-800 hover:bg-blue-50 shadow-xs ring-1 ring-slate-200/80 font-bold'
                         : 'bg-transparent text-slate-600 hover:text-slate-900 hover:bg-slate-300/40'
-                    }`}
+                      }`}
                   >
                     <span className={`material-symbols-outlined text-[17px] ${active ? 'text-blue-600' : 'text-muted'}`}>
                       {icon}
@@ -189,7 +188,7 @@ function App() {
 
       {/* Footer */}
       <footer className="mt-auto border-t border-slate-200 bg-white py-4 px-6 text-center text-xs text-muted print:hidden">
-        <p>KandyPack Logistics Platform · Semester 3 Database Systems · Group 23</p>
+        <p>KandyPack logistics</p>
       </footer>
     </div>
   );
