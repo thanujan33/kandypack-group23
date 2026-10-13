@@ -7,7 +7,15 @@ try {
     throw new Error('Set DB_PASSWORD with at least 12 characters');
   await c.query("CREATE USER IF NOT EXISTS 'kp_app'@'%' IDENTIFIED BY ?",[process.env.DB_PASSWORD]);
   await c.query("ALTER USER 'kp_app'@'%' IDENTIFIED BY ?",[process.env.DB_PASSWORD]);
-  await c.query("REVOKE ALL PRIVILEGES, GRANT OPTION FROM 'kp_app'@'%'");
+  if (process.env.DB_SSL === 'true') {
+  await c.query(
+    "REVOKE IF EXISTS ALL PRIVILEGES ON kandypack.* FROM 'kp_app'@'%'"
+  );
+} else {
+  await c.query(
+    "REVOKE ALL PRIVILEGES, GRANT OPTION FROM 'kp_app'@'%'"
+  );
+}
   await c.query("GRANT SELECT ON kandypack.* TO 'kp_app'@'%'");
   const [tables]=await c.query('SHOW TABLES');
   const names=new Set(tables.map(t=>Object.values(t)[0]));
