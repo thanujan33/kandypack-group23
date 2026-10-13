@@ -399,7 +399,7 @@ export default function Page({ user }) {
           {cart.length > 0 && (
             <div className="space-y-2 pt-2">
               <div className="flex items-center justify-between">
-                <h3>Order Items Manifest ({cart.length})</h3>
+                <h3>Order Items ({cart.length})</h3>
                 <button
                   type="button"
                   className="text-xs bg-slate-100 text-rose-700 hover:bg-rose-50 border border-slate-200"
@@ -429,10 +429,10 @@ export default function Page({ user }) {
                     fields={[
                       {
                         name: 'route_id',
-                        label: 'Delivery coverage area',
+                        label: 'Delivery area (Select the area containing your address)',
                         options: routes.map(r => ({ value: r.id, label: `${r.city} | ${r.coverage_area}` }))
                       },
-                      { name: 'address', label: 'Delivery street address' },
+                      { name: 'address', label: 'Delivery address' },
                       {
                         name: 'delivery_date',
                         label: 'Requested delivery date (≥ 7 days ahead)',
@@ -586,7 +586,7 @@ export default function Page({ user }) {
             {/* Consignment Overview Strip */}
             <div className="p-4 rounded-xl bg-slate-50 border border-slate-200/80 grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
               <div>
-                <span className="text-muted font-medium uppercase tracking-wider block">{isStore ? 'Order ID' : 'Consignment ID'}</span>
+                <span className="text-muted font-medium uppercase tracking-wider block">{isStore ? 'Order ID' : 'ID'}</span>
                 <span className="font-bold text-slate-900 font-mono text-sm mt-0.5 block">#KP-{detail.order.id}</span>
               </div>
               <div>
@@ -594,11 +594,11 @@ export default function Page({ user }) {
                 <span className="font-semibold text-slate-900 mt-0.5 block">{detail.order.delivery_date}</span>
               </div>
               <div>
-                <span className="text-muted font-medium uppercase tracking-wider block">{isStore ? 'Delivery area' : 'Destination Corridor'}</span>
+                <span className="text-muted font-medium uppercase tracking-wider block">{isStore ? 'Delivery area' : 'Destination route'}</span>
                 <span className="font-semibold text-slate-900 mt-0.5 block">{detail.order.city} · {detail.order.route}</span>
               </div>
               <div>
-                <span className="text-muted font-medium uppercase tracking-wider block">{isStore ? 'Order total' : 'Consignment Total'}</span>
+                <span className="text-muted font-medium uppercase tracking-wider block">{isStore ? 'Order total' : 'Order Total'}</span>
                 <span className="font-bold text-slate-900 tabular-nums text-sm mt-0.5 block">
                   LKR {detailTotal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                 </span>
@@ -607,7 +607,7 @@ export default function Page({ user }) {
 
             {/* Order Items Table */}
             <div>
-              <h3 className="text-sm font-bold text-slate-800 mb-2">{isStore ? 'Items in this order' : 'Manifest Line Items'}</h3>
+              <h3 className="text-sm font-bold text-slate-800 mb-2">{isStore ? 'Items in this order' : 'Ordered items'}</h3>
               <Table
                 rows={detail.items.map(item => ({
                   product: item.name,
